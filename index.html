@@ -206,7 +206,7 @@ main{flex:1;padding:18px 20px calc(96px + env(safe-area-inset-bottom));display:f
   function setStand() {
     var s = document.getElementById('stand');
     var m = data && /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})/.exec(data.generated_at || '');
-    s.textContent = m ? 'Stand ' + m[3] + '.' + m[2] + '., ' + m[4] + ':' + m[5] + ' Uhr' : '';
+    s.textContent = m ? 'Stand ' + m[3] + '.' + m[2] + '.' + m[1] : '';
   }
 
   /* ---------- Reiter ---------- */
