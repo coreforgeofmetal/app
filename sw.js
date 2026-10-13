@@ -1,7 +1,7 @@
 /* Core Forge of Metal – Service Worker
    Zweck: App installierbar machen und den letzten Stand offline zeigen.
    Strategie: Netz zuerst, bei Fehler der letzte gespeicherte Stand. */
-var CACHE = 'cfom-v1';
+var CACHE = 'cfom-v2';
 var SHELL = [
   './', 'index.html', 'fonts.css', 'manifest.webmanifest',
   'icon-32.png', 'icon-180.png', 'icon-192.png', 'icon-512.png', 'icon-maskable-512.png'

@@ -119,12 +119,56 @@ main{flex:1;padding:18px 20px calc(96px + env(safe-area-inset-bottom));display:f
 .again{background:var(--red);border-color:var(--red);color:#fff}
 .note{font-size:12px;color:var(--muted);text-align:center;padding:8px 0 0}
 
+/* Start-Animation: Die Schmiede wird angeheizt */
+#splash{position:fixed;inset:0;z-index:100;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:22px;
+  background:radial-gradient(ellipse at 50% 62%,#3A0D0A 0%,#140505 45%,#000 80%);opacity:1;transition:opacity .5s ease}
+#splash.out{opacity:0;pointer-events:none}
+#splash .logo{position:relative;width:132px;height:132px;border-radius:30px;display:block;background:#2E0C0C;
+  box-shadow:0 0 0 1px #7A1414,0 0 40px 6px rgba(209,10,10,.55)}
+#splash .name{font-family:'Oswald',sans-serif;font-weight:700;font-size:26px;letter-spacing:4px;text-align:center;line-height:1.05}
+#splash .name span{display:block;font-weight:500;font-size:13px;letter-spacing:7px;color:var(--red-hi);margin-top:6px}
+#splash .heat{width:200px;height:6px;border-radius:3px;background:#2A0D0D;overflow:hidden}
+#splash .heat i{display:block;height:100%;width:100%;border-radius:3px;background:linear-gradient(90deg,#8E0B0B,#FF4538,#FFB347);transform-origin:left;transform:scaleX(.08)}
+#splash .msg{font-family:'Oswald',sans-serif;font-weight:500;font-size:13px;letter-spacing:3px;color:var(--muted);text-transform:uppercase;text-align:center;padding:0 24px}
+#splash .sparks{position:absolute;left:0;right:0;bottom:0;height:60%;overflow:hidden;pointer-events:none}
+#splash .sparks b{position:absolute;bottom:-10px;width:4px;height:4px;border-radius:50%;background:#FFB347;box-shadow:0 0 8px 2px rgba(255,120,40,.8);opacity:0}
+@media (prefers-reduced-motion:no-preference){
+  #splash .logo{animation:glow 1.3s ease-in-out infinite alternate}
+  #splash .heat i{animation:heat 1.6s cubic-bezier(.3,.1,.2,1) forwards}
+  #splash .sparks b{animation:rise 2.4s ease-out infinite}
+  #splash .sparks b:nth-child(1){left:12%;animation-delay:.0s}
+  #splash .sparks b:nth-child(2){left:27%;animation-delay:.7s;width:3px;height:3px}
+  #splash .sparks b:nth-child(3){left:41%;animation-delay:1.3s}
+  #splash .sparks b:nth-child(4){left:58%;animation-delay:.3s;width:3px;height:3px}
+  #splash .sparks b:nth-child(5){left:73%;animation-delay:1.0s}
+  #splash .sparks b:nth-child(6){left:88%;animation-delay:1.7s;width:3px;height:3px}
+  @keyframes glow{from{box-shadow:0 0 0 1px #7A1414,0 0 26px 2px rgba(209,10,10,.4)}to{box-shadow:0 0 0 1px #B01818,0 0 56px 12px rgba(255,69,56,.7)}}
+  @keyframes heat{to{transform:scaleX(1)}}
+  @keyframes rise{0%{transform:translateY(0) translateX(0);opacity:0}15%{opacity:1}100%{transform:translateY(-52vh) translateX(18px);opacity:0}}
+}
+@media (prefers-reduced-motion:reduce){#splash .heat i{transform:scaleX(1)}}
+
 @media (prefers-reduced-motion:no-preference){
   .chip,.btn,.lnk,.more{transition:background-color .15s,color .15s,border-color .15s}
 }
 </style>
 </head>
 <body>
+<div id="splash" role="status" aria-live="polite">
+  <div class="sparks" aria-hidden="true"><b></b><b></b><b></b><b></b><b></b><b></b></div>
+  <img class="logo" src="icon-192.png" width="132" height="132" alt="">
+  <div class="name">CORE FORGE<span>OF METAL</span></div>
+  <div class="heat" aria-hidden="true"><i></i></div>
+  <div class="msg">Die Schmiede wird angeheizt …</div>
+</div>
+<script>
+(function () {
+  try {
+    if (sessionStorage.getItem('cfom-splash')) { var s = document.getElementById('splash'); if (s) s.parentNode.removeChild(s); }
+    else { sessionStorage.setItem('cfom-splash', '1'); }
+  } catch (e) {}
+})();
+</script>
 <div class="app">
   <header class="top">
     <a class="brand" href="#news" aria-label="Core Forge of Metal – zu den News">
@@ -572,9 +616,20 @@ main{flex:1;padding:18px 20px calc(96px + env(safe-area-inset-bottom));display:f
       el('button', { class: 'again', type: 'button', onclick: start }, 'Erneut versuchen')));
   }
 
+  var splashT0 = Date.now();
+  function hideSplash() {
+    var sp = document.getElementById('splash');
+    if (!sp) return;
+    var wait = Math.max(0, 1600 - (Date.now() - splashT0));
+    setTimeout(function () {
+      sp.classList.add('out');
+      setTimeout(function () { if (sp.parentNode) sp.parentNode.removeChild(sp); }, 600);
+    }, wait);
+  }
+
   function start() {
     showLoading();
-    load().then(function () { setStand(); renderView(); }).catch(showError);
+    load().then(function () { setStand(); renderView(); }).catch(showError).then(hideSplash);
   }
 
   window.addEventListener('hashchange', go);
