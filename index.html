@@ -52,6 +52,23 @@ main{flex:1;padding:18px 20px calc(96px + env(safe-area-inset-bottom));display:f
 .head h1{margin:0;font-family:'Oswald',sans-serif;font-weight:700;font-size:28px;letter-spacing:2px;line-height:1.1}
 .head p{margin:0;font-size:14px;color:var(--muted)}
 
+.quiz{display:flex;flex-direction:column;gap:12px;padding:16px;background:linear-gradient(160deg,#2A0D0D 0%,var(--card) 70%);border:1px solid var(--red-deep);border-radius:14px}
+.qk{display:flex;align-items:center;justify-content:space-between;font-family:'Oswald',sans-serif;font-weight:600;font-size:14px;letter-spacing:3px;color:var(--red-hi)}
+.qq{margin:0;font-family:'Oswald',sans-serif;font-weight:600;font-size:20px;line-height:1.25}
+.opts{display:flex;flex-direction:column;gap:8px}
+.opt{display:flex;align-items:center;gap:12px;min-height:50px;padding:8px 14px;text-align:left;border:1px solid var(--card-line);border-radius:12px;background:#120808;color:var(--text);font-size:16px;cursor:pointer;width:100%}
+.opt:disabled{cursor:default}
+.opt .let{flex:none;width:28px;height:28px;border-radius:50%;background:var(--tint);color:var(--red-hi);font-family:'Oswald',sans-serif;font-weight:700;font-size:14px;display:flex;align-items:center;justify-content:center}
+.opt .ot{flex:1;min-width:0;overflow-wrap:anywhere}
+.opt .mark{flex:none;font-weight:700;font-size:18px}
+.opt.ok{border-color:#2FBF71;background:#0E2417}
+.opt.ok .mark{color:#4BE08E}
+.opt.no{border-color:var(--red-hi);background:#2A0D0D}
+.opt.no .mark{color:var(--red-hi)}
+.res{display:flex;flex-direction:column;gap:4px;padding-top:4px;font-size:14px;line-height:1.4;color:var(--soft)}
+.res strong{font-family:'Oswald',sans-serif;font-weight:700;font-size:16px;letter-spacing:1.5px}
+.res .good{color:#4BE08E}.res .bad{color:var(--red-hi)}
+.sr{position:absolute;left:-9999px}
 .search{display:flex;align-items:center;gap:10px;height:48px;padding:0 14px;border:1px solid var(--card-line);border-radius:14px;background:var(--card)}
 .search:focus-within{border-color:var(--red-hi)}
 .search input{flex:1;min-width:0;border:0;outline:0;background:transparent;color:var(--text);font-family:inherit;font-size:16px}
@@ -196,11 +213,73 @@ main{flex:1;padding:18px 20px calc(96px + env(safe-area-inset-bottom));display:f
       return r.json();
     }).then(function (d) {
       d = d || {};
-      ['bands', 'news', 'concerts', 'releases'].forEach(function (k) { if (!Array.isArray(d[k])) d[k] = []; });
+      ['bands', 'news', 'concerts', 'releases', 'quiz'].forEach(function (k) { if (!Array.isArray(d[k])) d[k] = []; });
       data = d;
       bandMap = {};
       d.bands.forEach(function (b) { if (b && b.slug) bandMap[b.slug] = b; });
     });
+  }
+
+  /* Dynamische Zeile unter "Frisch geschmiedet" */
+  function newsSub() {
+    var fallback = 'Die Metal-News des Tages – heiß vom Amboss.';
+    if (!data || !data.news.length) return fallback;
+    var max = '';
+    data.news.forEach(function (n) { if (n.date && String(n.date) > max) max = String(n.date); });
+    var d = parseDay(max);
+    if (!d) return fallback;
+    var items = data.news.filter(function (n) { return String(n.date) === max; });
+    var tips = items.filter(function (n) { return n.is_tip === true; }).length;
+    var diff = dayDiff(d);
+    var when = diff === 0 ? 'heute' : diff === -1 ? 'gestern' : 'vom ' + d.toLocaleDateString('de-DE', { day: 'numeric', month: 'numeric' }) + '.';
+    var s = items.length + (items.length === 1 ? ' frisches Schmiedestück ' : ' frische Schmiedestücke ') + when;
+    if (tips) s += ' · ' + tips + (tips === 1 ? ' Geheimtipp' : ' Geheimtipps');
+    return s;
+  }
+
+  /* ---------- Quiz ---------- */
+  function latestQuiz() {
+    var list = (data.quiz || []).filter(function (q) {
+      var d = parseDay(q.date);
+      return d && d <= today && q.question && Array.isArray(q.options) && q.options.length >= 2 && typeof q.correct === 'number';
+    }).sort(function (a, b) { return String(b.date).localeCompare(String(a.date)); });
+    return list[0] || null;
+  }
+  function quizGet(id) { try { var v = localStorage.getItem('cfom-quiz-' + id); return v === null ? null : +v; } catch (e) { return null; } }
+  function quizSet(id, v) { try { localStorage.setItem('cfom-quiz-' + id, String(v)); } catch (e) { /* ohne Speicher weiter */ }
+  }
+  function quizCard(q) {
+    var letters = ['A', 'B', 'C', 'D'];
+    var d = parseDay(q.date);
+    var diff = d ? dayDiff(d) : 0;
+    var when = diff === 0 ? 'Heute' : diff === -1 ? 'Gestern' : d ? d.toLocaleDateString('de-DE', { day: 'numeric', month: 'numeric' }) + '.' : '';
+    var box = el('section', { class: 'quiz', 'aria-label': 'Metal-Quiz des Tages' });
+    var resultHost = el('div', { 'aria-live': 'polite' });
+    var btns = [];
+    function reveal(pick, save) {
+      btns.forEach(function (b, i) {
+        b.disabled = true;
+        if (i === q.correct) { b.className = 'opt ok'; b.appendChild(el('span', { class: 'mark', 'aria-hidden': 'true' }, '✓')); b.appendChild(el('span', { class: 'sr' }, ' (richtig)')); }
+        else if (i === pick) { b.className = 'opt no'; b.appendChild(el('span', { class: 'mark', 'aria-hidden': 'true' }, '✗')); b.appendChild(el('span', { class: 'sr' }, ' (falsch)')); }
+      });
+      resultHost.textContent = '';
+      resultHost.appendChild(el('div', { class: 'res' },
+        el('strong', { class: pick === q.correct ? 'good' : 'bad' }, pick === q.correct ? 'RICHTIG! 🤘' : 'KNAPP DANEBEN.'),
+        q.explanation ? el('span', null, q.explanation) : null));
+      if (save) quizSet(q.id, pick);
+    }
+    q.options.forEach(function (text, i) {
+      var b = el('button', { class: 'opt', type: 'button', onclick: function () { reveal(i, true); } },
+        el('span', { class: 'let', 'aria-hidden': 'true' }, letters[i] || String(i + 1)), el('span', { class: 'ot' }, text));
+      btns.push(b);
+    });
+    box.appendChild(el('div', { class: 'qk' }, el('span', null, 'METAL-QUIZ'), when ? el('span', { class: 'pill' }, when) : null));
+    box.appendChild(el('h2', { class: 'qq' }, q.question));
+    box.appendChild(el('div', { class: 'opts', role: 'group', 'aria-label': 'Antworten' }, btns));
+    box.appendChild(resultHost);
+    var saved = quizGet(q.id);
+    if (saved !== null && saved >= 0 && saved < q.options.length) reveal(saved, false);
+    return box;
   }
 
   function setStand() {
@@ -211,13 +290,13 @@ main{flex:1;padding:18px 20px calc(96px + env(safe-area-inset-bottom));display:f
 
   /* ---------- Reiter ---------- */
   var TABS = [
-    { id: 'news', label: 'News', title: 'NEWS', sub: 'Die Metal-News aus dem täglichen Digest.',
+    { id: 'news', label: 'News', title: 'FRISCH GESCHMIEDET', sub: newsSub,
       icon: '<path d="M4 5h13v14H6a2 2 0 0 1-2-2z"/><path d="M17 9h3v8a2 2 0 0 1-2 2"/><path d="M8 9h5M8 13h5"/>' },
-    { id: 'neu', label: 'Neu', title: 'NEUERSCHEINUNGEN', sub: 'Neue Alben, EPs und Singles.',
+    { id: 'neu', label: 'Neu', title: 'FRISCH GEPRESST', sub: 'Neue Alben, EPs und Singles – direkt aus dem Presswerk.',
       icon: '<circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="2.5"/><path d="M12 3v3"/>' },
-    { id: 'konzerte', label: 'Konzerte', title: 'KONZERTE', sub: 'Kommende Shows mit direktem Ticketlink.',
+    { id: 'konzerte', label: 'Konzerte', title: 'LIVE & LAUT', sub: 'Kommende Shows mit direktem Ticketlink.',
       icon: '<rect x="3" y="6" width="18" height="12" rx="2"/><path d="M3 11h18"/>' },
-    { id: 'tipps', label: 'Tipps', title: 'GEHEIMTIPPS', sub: 'Bands, die du kennen solltest.',
+    { id: 'tipps', label: 'Tipps', title: 'AUS DEM UNTERGRUND', sub: 'Bands, die du kennen solltest.',
       icon: '<path d="M12 3l2.6 5.6 6.1.7-4.5 4.2 1.2 6L12 16.5 6.6 19.5l1.2-6L3.3 9.3l6.1-.7z"/>' }
   ];
   var FORMATS = { digest: 'Digest', backflash: 'Backflash', ballade: 'Ballade', geheimtipp: 'Geheimtipp', rueckblick: 'Rückblick' };
@@ -426,7 +505,11 @@ main{flex:1;padding:18px 20px calc(96px + env(safe-area-inset-bottom));display:f
       oninput: function () { state.q = searchInput.value; state.limit = PAGE; renderList(baseItems()); } });
     chipsHost = el('div');
     listHost = el('div', { class: 'list' });
-    host$.appendChild(el('div', { class: 'head' }, el('h1', null, t.title), el('p', null, t.sub)));
+    host$.appendChild(el('div', { class: 'head' }, el('h1', null, t.title), el('p', null, typeof t.sub === 'function' ? t.sub() : t.sub)));
+    if (state.tab === 'news') {
+      var qz = latestQuiz();
+      if (qz) host$.appendChild(quizCard(qz));
+    }
     host$.appendChild(el('label', { class: 'search' }, svg('<circle cx="11" cy="11" r="7"/><path d="M20 20l-4-4"/>', 20, ' style="color:#A8A8A8"'), el('span', { class: 'sr', style: 'position:absolute;left:-9999px' }, 'Suchen'), searchInput));
     host$.appendChild(chipsHost);
     host$.appendChild(listHost);
