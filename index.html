@@ -2,18 +2,471 @@
 <html lang="de">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Core Forge of Metal</title>
+<meta name="description" content="Täglich Metal-News, Neuerscheinungen und Konzerte mit Ticketlinks – Core Forge of Metal.">
+<meta name="theme-color" content="#000000">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" type="image/png" sizes="32x32" href="icon-32.png">
+<link rel="apple-touch-icon" href="icon-180.png">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Core Forge">
+<meta name="apple-mobile-web-app-status-bar-style" content="black">
+<link rel="stylesheet" href="fonts.css">
 <style>
-  body { margin:0; background:#0b0b0b; color:#fff; font-family:system-ui,sans-serif;
-         display:flex; align-items:center; justify-content:center; min-height:100vh; text-align:center; }
-  h1 { color:#e10600; letter-spacing:2px; }
+:root{
+  --bg:#0A0A0A; --bar:#000000; --line:#1F1F1F;
+  --card:#190B0B; --card-line:#4A1515; --tint:#2A0D0D;
+  --red:#D10A0A; --red-hi:#FF4538; --red-deep:#8E0B0B;
+  --text:#F2F2F2; --muted:#A8A8A8; --soft:#B0B0B0;
+}
+*{box-sizing:border-box}
+html{-webkit-text-size-adjust:100%}
+body{margin:0;background:var(--bg);color:var(--text);font-family:'Barlow',system-ui,-apple-system,'Segoe UI',sans-serif;font-size:16px;line-height:1.4}
+a{color:inherit}
+button{font-family:inherit}
+:focus-visible{outline:2px solid var(--red-hi);outline-offset:2px}
+
+.app{max-width:560px;margin:0 auto;min-height:100vh;min-height:100dvh;display:flex;flex-direction:column}
+
+.top{position:sticky;top:0;z-index:5;display:flex;align-items:center;justify-content:space-between;gap:12px;
+  padding:calc(12px + env(safe-area-inset-top)) 20px 12px;background:var(--bar);border-bottom:1px solid var(--line)}
+.brand{display:flex;align-items:center;gap:12px;min-width:0;text-decoration:none}
+.brand img{width:44px;height:44px;border-radius:11px;display:block;flex:none;background:#2E0C0C;box-shadow:0 0 0 1px #7A1414}
+.wm{display:flex;flex-direction:column;line-height:1}
+.wm b{font-family:'Oswald',sans-serif;font-weight:700;font-size:22px;letter-spacing:2px;white-space:nowrap}
+.wm span{font-family:'Oswald',sans-serif;font-weight:500;font-size:12px;letter-spacing:5px;color:var(--red-hi);margin-top:3px}
+.stand{font-size:12px;color:var(--muted);text-align:right;line-height:1.3}
+
+main{flex:1;padding:18px 20px calc(96px + env(safe-area-inset-bottom));display:flex;flex-direction:column;gap:14px;min-width:0}
+
+.tabs{position:fixed;left:0;right:0;bottom:0;z-index:6;background:var(--bar);border-top:1px solid var(--line);padding-bottom:env(safe-area-inset-bottom)}
+.tabs .in{display:flex;max-width:560px;margin:0 auto}
+.tabs a{flex:1;min-height:64px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;
+  color:var(--muted);font-size:11px;font-weight:500;text-decoration:none}
+.tabs a[aria-current="page"]{color:var(--red-hi);font-weight:600}
+.tabs svg{display:block}
+
+.head{display:flex;flex-direction:column;gap:4px;padding:14px 16px;background:var(--card);border:1px solid var(--card-line);border-radius:14px}
+.head h1{margin:0;font-family:'Oswald',sans-serif;font-weight:700;font-size:28px;letter-spacing:2px;line-height:1.1}
+.head p{margin:0;font-size:14px;color:var(--muted)}
+
+.search{display:flex;align-items:center;gap:10px;height:48px;padding:0 14px;border:1px solid var(--card-line);border-radius:14px;background:var(--card)}
+.search:focus-within{border-color:var(--red-hi)}
+.search input{flex:1;min-width:0;border:0;outline:0;background:transparent;color:var(--text);font-family:inherit;font-size:16px}
+.search input::placeholder{color:var(--muted)}
+.search svg{flex:none}
+
+.chips{display:flex;gap:8px;overflow-x:auto;scrollbar-width:none;margin:0 -20px;padding:2px 20px}
+.chips::-webkit-scrollbar{display:none}
+.chip{height:40px;padding:0 16px;flex:none;white-space:nowrap;border:1px solid var(--card-line);border-radius:20px;background:var(--card);color:var(--text);font-size:14px;cursor:pointer}
+.chip[aria-pressed="true"]{background:var(--red);border-color:var(--red);color:#fff;font-weight:600}
+
+.gh{margin:6px 0 -4px;font-family:'Oswald',sans-serif;font-weight:600;font-size:18px;letter-spacing:1.5px;text-transform:uppercase}
+.list{display:flex;flex-direction:column;gap:12px}
+
+.card{display:flex;flex-direction:column;background:var(--card);border:1px solid var(--card-line);border-radius:14px}
+.row{display:flex;gap:14px;padding:14px;min-width:0}
+.avatar{width:52px;height:52px;flex:none;border-radius:10px;background:var(--tint);display:flex;align-items:center;justify-content:center;
+  font-family:'Oswald',sans-serif;font-weight:700;font-size:22px;color:var(--red-hi)}
+.body{display:flex;flex-direction:column;gap:4px;min-width:0;flex:1}
+.band{font-size:12px;font-weight:600;letter-spacing:2px;color:var(--red-hi);text-transform:uppercase;overflow-wrap:anywhere}
+.hl{font-family:'Oswald',sans-serif;font-weight:600;font-size:18px;line-height:1.2;overflow-wrap:anywhere}
+.q{font-size:14px;line-height:1.35;color:var(--soft)}
+.foot{display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap;padding:2px 6px 2px 14px;border-top:1px solid var(--card-line)}
+.pills{display:flex;align-items:center;gap:6px;flex-wrap:wrap;padding:6px 0}
+.pill{height:24px;padding:0 10px;border-radius:12px;background:#262626;color:var(--soft);font-size:11px;font-weight:600;letter-spacing:1px;display:inline-flex;align-items:center;text-transform:uppercase}
+.pill.hot{background:var(--red-deep);color:#fff}
+.acts{display:flex;gap:0}
+.lnk{min-height:44px;padding:0 10px;display:inline-flex;align-items:center;color:var(--red-hi);font-weight:600;font-size:14px;text-decoration:none}
+
+.date{width:58px;height:64px;flex:none;border-radius:10px;background:var(--red-deep);display:flex;flex-direction:column;align-items:center;justify-content:center;line-height:1.05;color:#fff}
+.date small{font-size:11px;font-weight:600;letter-spacing:1px}
+.date b{font-family:'Oswald',sans-serif;font-weight:700;font-size:26px}
+.when{align-items:center}
+.sub{font-size:13px;color:var(--soft);overflow-wrap:anywhere}
+.where{font-size:13px;font-weight:600;color:var(--red-hi)}
+.ticket{display:flex;flex-direction:column;align-items:center;gap:4px;flex:none;max-width:120px}
+.btn{min-height:44px;padding:0 14px;border-radius:10px;background:var(--red);color:#fff;font-weight:600;font-size:14px;text-decoration:none;display:inline-flex;align-items:center;gap:6px}
+.ticket small{font-size:11px;color:var(--muted);max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+
+.empty{padding:28px 16px;text-align:center;color:var(--muted);border:1px dashed var(--card-line);border-radius:14px;display:flex;flex-direction:column;align-items:center;gap:12px}
+.empty strong{color:var(--text);font-family:'Oswald',sans-serif;font-weight:600;font-size:18px;letter-spacing:1px}
+.more,.again{min-height:48px;padding:0 20px;border:1px solid var(--card-line);border-radius:14px;background:var(--card);color:var(--text);font-weight:600;font-size:15px;cursor:pointer}
+.again{background:var(--red);border-color:var(--red);color:#fff}
+.note{font-size:12px;color:var(--muted);text-align:center;padding:8px 0 0}
+
+@media (prefers-reduced-motion:no-preference){
+  .chip,.btn,.lnk,.more{transition:background-color .15s,color .15s,border-color .15s}
+}
 </style>
 </head>
 <body>
-  <div>
-    <h1>CORE FORGE OF METAL</h1>
-    <p>Die App wird gerade geschmiedet 🤘</p>
-  </div>
+<div class="app">
+  <header class="top">
+    <a class="brand" href="#news" aria-label="Core Forge of Metal – zu den News">
+      <img src="icon-192.png" width="44" height="44" alt="">
+      <span class="wm"><b>CORE FORGE</b><span>OF METAL</span></span>
+    </a>
+    <div class="stand" id="stand" aria-live="polite"></div>
+  </header>
+  <main id="view" tabindex="-1">
+    <noscript><p class="empty">Für diese App wird JavaScript benötigt. Aktiviere es in deinem Browser und lade die Seite neu.</p></noscript>
+  </main>
+  <nav class="tabs" aria-label="Hauptnavigation"><div class="in" id="tabs"></div></nav>
+</div>
+
+<script>
+(function () {
+  'use strict';
+
+  /* ---------- Hilfsfunktionen ---------- */
+  var DATA_URL = 'data/data.json';
+  var PAGE = 40;
+
+  function el(tag, props) {
+    var n = document.createElement(tag);
+    if (props) Object.keys(props).forEach(function (k) {
+      var v = props[k];
+      if (v === null || v === undefined || v === false) return;
+      if (k === 'class') n.className = v;
+      else if (k === 'text') n.textContent = v;
+      else if (k.indexOf('on') === 0) n.addEventListener(k.slice(2), v);
+      else n.setAttribute(k, v === true ? '' : v);
+    });
+    for (var i = 2; i < arguments.length; i++) append(n, arguments[i]);
+    return n;
+  }
+  function append(n, c) {
+    if (c === null || c === undefined || c === false) return;
+    if (Array.isArray(c)) { c.forEach(function (x) { append(n, x); }); return; }
+    n.appendChild(c.nodeType ? c : document.createTextNode(String(c)));
+  }
+  function svg(path, size, extra) {
+    var t = document.createElement('template');
+    t.innerHTML = '<svg width="' + (size || 24) + '" height="' + (size || 24) + '" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"' + (extra || '') + '>' + path + '</svg>';
+    return t.content.firstChild;
+  }
+  function safeUrl(u) { return (typeof u === 'string' && /^https?:\/\//i.test(u)) ? u : null; }
+  function host(u) { try { return new URL(u).hostname.replace(/^www\./, ''); } catch (e) { return ''; } }
+  function norm(s) { return String(s || '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase(); }
+  function parseDay(s) {
+    var m = /^(\d{4})-(\d{2})-(\d{2})/.exec(s || '');
+    return m ? new Date(+m[1], +m[2] - 1, +m[3]) : null;
+  }
+  var now = new Date();
+  var today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  function dayDiff(d) { return Math.round((d - today) / 86400000); }
+  var MON = ['JAN', 'FEB', 'MÄR', 'APR', 'MAI', 'JUN', 'JUL', 'AUG', 'SEP', 'OKT', 'NOV', 'DEZ'];
+  function dayHeading(d) {
+    var diff = dayDiff(d);
+    if (diff === 0) return 'Heute';
+    if (diff === -1) return 'Gestern';
+    var o = { weekday: 'long', day: 'numeric', month: 'long' };
+    if (d.getFullYear() !== today.getFullYear()) o.year = 'numeric';
+    return d.toLocaleDateString('de-DE', o);
+  }
+  function monthHeading(d) {
+    return d.toLocaleDateString('de-DE', { month: 'long', year: 'numeric' });
+  }
+  var regionNames = null;
+  try { regionNames = new Intl.DisplayNames(['de'], { type: 'region' }); } catch (e) { /* ältere Browser */ }
+  function country(code) {
+    if (!code) return '';
+    try { return regionNames ? regionNames.of(String(code).toUpperCase()) : code; } catch (e) { return code; }
+  }
+  function groupBy(items, keyFn) {
+    var groups = [], idx = {};
+    items.forEach(function (it) {
+      var k = keyFn(it);
+      if (!(k in idx)) { idx[k] = groups.length; groups.push({ key: k, items: [] }); }
+      groups[idx[k]].items.push(it);
+    });
+    return groups;
+  }
+
+  /* ---------- Daten ---------- */
+  var data = null, bandMap = {};
+  function bandGenres(slug) { return (bandMap[slug] && bandMap[slug].genres) || []; }
+
+  function load() {
+    return fetch(DATA_URL, { cache: 'no-cache' }).then(function (r) {
+      if (!r.ok) throw new Error('HTTP ' + r.status);
+      return r.json();
+    }).then(function (d) {
+      d = d || {};
+      ['bands', 'news', 'concerts', 'releases'].forEach(function (k) { if (!Array.isArray(d[k])) d[k] = []; });
+      data = d;
+      bandMap = {};
+      d.bands.forEach(function (b) { if (b && b.slug) bandMap[b.slug] = b; });
+    });
+  }
+
+  function setStand() {
+    var s = document.getElementById('stand');
+    var m = data && /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})/.exec(data.generated_at || '');
+    s.textContent = m ? 'Stand ' + m[3] + '.' + m[2] + '., ' + m[4] + ':' + m[5] + ' Uhr' : '';
+  }
+
+  /* ---------- Reiter ---------- */
+  var TABS = [
+    { id: 'news', label: 'News', title: 'NEWS', sub: 'Die Metal-News aus dem täglichen Digest.',
+      icon: '<path d="M4 5h13v14H6a2 2 0 0 1-2-2z"/><path d="M17 9h3v8a2 2 0 0 1-2 2"/><path d="M8 9h5M8 13h5"/>' },
+    { id: 'neu', label: 'Neu', title: 'NEUERSCHEINUNGEN', sub: 'Neue Alben, EPs und Singles.',
+      icon: '<circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="2.5"/><path d="M12 3v3"/>' },
+    { id: 'konzerte', label: 'Konzerte', title: 'KONZERTE', sub: 'Kommende Shows mit direktem Ticketlink.',
+      icon: '<rect x="3" y="6" width="18" height="12" rx="2"/><path d="M3 11h18"/>' },
+    { id: 'tipps', label: 'Tipps', title: 'GEHEIMTIPPS', sub: 'Bands, die du kennen solltest.',
+      icon: '<path d="M12 3l2.6 5.6 6.1.7-4.5 4.2 1.2 6L12 16.5 6.6 19.5l1.2-6L3.3 9.3l6.1-.7z"/>' }
+  ];
+  var FORMATS = { digest: 'Digest', backflash: 'Backflash', ballade: 'Ballade', geheimtipp: 'Geheimtipp', rueckblick: 'Rückblick' };
+  var TYPES = { album: 'Album', ep: 'EP', single: 'Single' };
+
+  var state = { tab: 'news', f: {}, q: '', limit: PAGE };
+  var host$ = document.getElementById('view');
+  var chipsHost, listHost, searchInput;
+
+  function tabFromHash() {
+    var h = (location.hash || '').replace('#', '');
+    return TABS.some(function (t) { return t.id === h; }) ? h : 'news';
+  }
+
+  function renderTabs() {
+    var nav = document.getElementById('tabs');
+    nav.textContent = '';
+    TABS.forEach(function (t) {
+      var a = el('a', { href: '#' + t.id, 'aria-current': t.id === state.tab ? 'page' : null }, svg(t.icon, 24), t.label);
+      nav.appendChild(a);
+    });
+  }
+
+  /* Basisliste je Reiter (ohne Filter) */
+  function baseItems() {
+    if (state.tab === 'news') return data.news;
+    if (state.tab === 'tipps') return data.news.filter(function (n) { return n.is_tip === true; });
+    if (state.tab === 'neu') return data.releases.slice().sort(function (a, b) { return String(b.date).localeCompare(String(a.date)); });
+    return data.concerts.filter(function (c) { var d = parseDay(c.date); return d && d >= today; })
+      .sort(function (a, b) { return String(a.date).localeCompare(String(b.date)) || String(a.band).localeCompare(String(b.band)); });
+  }
+
+  function searchText(it) {
+    if (state.tab === 'neu') return it.band + ' ' + it.title;
+    if (state.tab === 'konzerte') return [it.band, it.city, it.venue, country(it.country)].join(' ');
+    return [it.band, it.headline, it.song].join(' ');
+  }
+
+  function filtered(base) {
+    var q = norm(state.q).trim();
+    return base.filter(function (it) {
+      var f = state.f;
+      if (f.genre && bandGenres(it.band_slug).indexOf(f.genre) === -1) return false;
+      if (f.format && it.format !== f.format) return false;
+      if (f.type && it.type !== f.type) return false;
+      if (f.scope === 'de' && String(it.country).toUpperCase() !== 'DE') return false;
+      if (f.scope === 'monat') {
+        var d = parseDay(it.date);
+        if (!d || d.getMonth() !== today.getMonth() || d.getFullYear() !== today.getFullYear()) return false;
+      }
+      if (q && norm(searchText(it)).indexOf(q) === -1) return false;
+      return true;
+    });
+  }
+
+  /* ---------- Filterleisten ---------- */
+  function chipRow(label, options, key) {
+    // options: [[wert|null, text], ...]
+    return el('div', { class: 'chips', role: 'group', 'aria-label': label },
+      options.map(function (o) {
+        var on = (state.f[key] || null) === o[0];
+        return el('button', { class: 'chip', type: 'button', 'aria-pressed': on ? 'true' : 'false', onclick: function () {
+          state.f[key] = o[0]; state.limit = PAGE; update();
+        } }, o[1]);
+      }));
+  }
+  function genreOptions(base) {
+    var counts = {};
+    base.forEach(function (it) { bandGenres(it.band_slug).forEach(function (g) { counts[g] = (counts[g] || 0) + 1; }); });
+    var names = Object.keys(counts).sort(function (a, b) { return counts[b] - counts[a] || a.localeCompare(b, 'de'); }).slice(0, 10);
+    return [[null, 'Alle Genres']].concat(names.map(function (g) { return [g, g]; }));
+  }
+  function renderChips(base) {
+    chipsHost.textContent = '';
+    var rows = [];
+    if (state.tab === 'konzerte') rows.push(chipRow('Zeitraum und Land', [[null, 'Alle'], ['monat', 'Dieser Monat'], ['de', 'Deutschland']], 'scope'));
+    if (state.tab === 'neu') rows.push(chipRow('Art der Veröffentlichung', [[null, 'Alle'], ['album', 'Alben'], ['ep', 'EPs'], ['single', 'Singles']], 'type'));
+    if (state.tab === 'news') {
+      var present = {};
+      base.forEach(function (n) { if (n.format) present[n.format] = true; });
+      var fo = [[null, 'Alle Formate']];
+      Object.keys(FORMATS).forEach(function (k) { if (present[k]) fo.push([k, FORMATS[k]]); });
+      if (fo.length > 2) rows.push(chipRow('Format', fo, 'format'));
+    }
+    var go = genreOptions(base);
+    if (go.length > 1) rows.push(chipRow('Genre', go, 'genre'));
+    rows.forEach(function (r) { chipsHost.appendChild(r); });
+  }
+
+  /* ---------- Karten ---------- */
+  function link(url, text, label) {
+    var u = safeUrl(url);
+    return u ? el('a', { class: 'lnk', href: u, target: '_blank', rel: 'noopener noreferrer', 'aria-label': label }, text) : null;
+  }
+  function spotifySearch(band, title) {
+    return 'https://open.spotify.com/search/' + encodeURIComponent((band || '') + ' ' + (title || ''));
+  }
+
+  function newsCard(n) {
+    var genre = bandGenres(n.band_slug)[0];
+    var band = n.band || 'Special';
+    return el('article', { class: 'card' },
+      el('div', { class: 'row' },
+        el('div', { class: 'avatar', 'aria-hidden': 'true' }, band.charAt(0).toUpperCase()),
+        el('div', { class: 'body' },
+          el('span', { class: 'band' }, band),
+          el('span', { class: 'hl' }, n.headline || ''),
+          n.question ? el('span', { class: 'q' }, n.question) : null)),
+      el('div', { class: 'foot' },
+        el('span', { class: 'pills' },
+          genre ? el('span', { class: 'pill' }, genre) : null,
+          n.is_tip ? el('span', { class: 'pill hot' }, 'Geheimtipp') : (n.format && n.format !== 'digest' && FORMATS[n.format] ? el('span', { class: 'pill' }, FORMATS[n.format]) : null)),
+        el('span', { class: 'acts' },
+          link(n.spotify_url, 'Spotify', band + ': auf Spotify öffnen'),
+          link(n.youtube_url, 'YouTube', band + ': auf YouTube öffnen'),
+          link(n.article_url, 'Artikel', band + ': Artikel lesen'))));
+  }
+
+  function dateBlock(d) {
+    return el('div', { class: 'date', 'aria-hidden': 'true' }, el('small', null, MON[d.getMonth()]), el('b', null, String(d.getDate())));
+  }
+
+  function releaseCard(r) {
+    var d = parseDay(r.date);
+    var genre = bandGenres(r.band_slug)[0];
+    var upcoming = d && dayDiff(d) > 0;
+    return el('article', { class: 'card' },
+      el('div', { class: 'row when' },
+        d ? dateBlock(d) : null,
+        el('div', { class: 'body' },
+          el('span', { class: 'band' }, r.band),
+          el('span', { class: 'hl' }, r.title),
+          d ? el('span', { class: 'sub' }, (upcoming ? 'Erscheint am ' : 'Erschienen am ') + d.toLocaleDateString('de-DE', { day: 'numeric', month: 'long', year: 'numeric' })) : null)),
+      el('div', { class: 'foot' },
+        el('span', { class: 'pills' },
+          el('span', { class: 'pill hot' }, TYPES[r.type] || 'Release'),
+          genre ? el('span', { class: 'pill' }, genre) : null),
+        el('span', { class: 'acts' },
+          link(r.spotify_url || spotifySearch(r.band, r.title), 'Spotify', r.band + ' – ' + r.title + ': auf Spotify suchen'),
+          link(r.url, 'Ansehen', r.band + ' – ' + r.title + ': Details öffnen'))));
+  }
+
+  function concertCard(c) {
+    var d = parseDay(c.date);
+    var t = safeUrl(c.ticket_url);
+    var place = [c.city, country(c.country)].filter(Boolean).join(', ');
+    return el('article', { class: 'card' },
+      el('div', { class: 'row when' },
+        d ? dateBlock(d) : null,
+        el('div', { class: 'body' },
+          el('span', { class: 'hl' }, c.band),
+          c.venue ? el('span', { class: 'sub' }, c.venue) : null,
+          place ? el('span', { class: 'where' }, place) : null,
+          d ? el('span', { class: 'sub' }, d.toLocaleDateString('de-DE', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })) : null),
+        t ? el('div', { class: 'ticket' },
+          el('a', { class: 'btn', href: t, target: '_blank', rel: 'noopener noreferrer', 'aria-label': c.band + ' in ' + (c.city || 'unbekannt') + ': Tickets kaufen' }, 'Tickets', svg('<path d="M7 17L17 7M9 7h8v8"/>', 14)),
+          el('small', null, 'bei ' + host(t))) : null));
+  }
+
+  /* ---------- Liste ---------- */
+  function renderList(base) {
+    var items = filtered(base);
+    listHost.textContent = '';
+    if (!items.length) {
+      var hasFilter = state.q || Object.keys(state.f).some(function (k) { return state.f[k]; });
+      listHost.appendChild(hasFilter
+        ? el('div', { class: 'empty' }, el('strong', null, 'KEINE TREFFER'), el('span', null, 'Zu dieser Auswahl gibt es nichts. Ändere die Suche oder setze die Filter zurück.'),
+            el('button', { class: 'more', type: 'button', onclick: function () { state.q = ''; state.f = {}; searchInput.value = ''; update(); } }, 'Filter zurücksetzen'))
+        : el('div', { class: 'empty' }, el('strong', null, 'NOCH NICHTS DA'), el('span', null, 'Hier erscheinen neue Einträge, sobald der nächste Digest oder die nächste Aktualisierung durch ist.')));
+      return;
+    }
+    var shown = items.slice(0, state.limit);
+    var tab = state.tab, groups;
+    if (tab === 'neu') {
+      groups = groupBy(shown, function (r) { var d = parseDay(r.date); return d && dayDiff(d) > 0 ? 'Angekündigt' : 'Neu erschienen'; });
+      groups.sort(function (a) { return a.key === 'Angekündigt' ? -1 : 1; });
+    } else if (tab === 'konzerte') {
+      groups = groupBy(shown, function (c) { var d = parseDay(c.date); return d ? monthHeading(d) : 'Ohne Datum'; });
+    } else {
+      groups = groupBy(shown, function (n) { var d = parseDay(n.date); return d ? dayHeading(d) : 'Ohne Datum'; });
+    }
+    groups.forEach(function (g) {
+      listHost.appendChild(el('h2', { class: 'gh' }, g.key));
+      g.items.forEach(function (it) {
+        listHost.appendChild(tab === 'neu' ? releaseCard(it) : tab === 'konzerte' ? concertCard(it) : newsCard(it));
+      });
+    });
+    if (items.length > shown.length) {
+      listHost.appendChild(el('button', { class: 'more', type: 'button', onclick: function () { state.limit += PAGE; renderList(base); } },
+        'Mehr anzeigen (' + (items.length - shown.length) + ' weitere)'));
+    }
+    if (tab === 'konzerte') listHost.appendChild(el('p', { class: 'note' }, 'Termine und Ticketlinks stammen von Ticketmaster. Angaben ohne Gewähr.'));
+  }
+
+  function update() {
+    var base = baseItems();
+    renderChips(base);
+    renderList(base);
+  }
+
+  function renderView() {
+    var t = TABS.filter(function (x) { return x.id === state.tab; })[0];
+    document.title = t.title.charAt(0) + t.title.slice(1).toLowerCase() + ' – Core Forge of Metal';
+    host$.textContent = '';
+    searchInput = el('input', { type: 'search', id: 'q', placeholder: 'Band, Song oder Stadt suchen', autocomplete: 'off', enterkeyhint: 'search',
+      oninput: function () { state.q = searchInput.value; state.limit = PAGE; renderList(baseItems()); } });
+    chipsHost = el('div');
+    listHost = el('div', { class: 'list' });
+    host$.appendChild(el('div', { class: 'head' }, el('h1', null, t.title), el('p', null, t.sub)));
+    host$.appendChild(el('label', { class: 'search' }, svg('<circle cx="11" cy="11" r="7"/><path d="M20 20l-4-4"/>', 20, ' style="color:#A8A8A8"'), el('span', { class: 'sr', style: 'position:absolute;left:-9999px' }, 'Suchen'), searchInput));
+    host$.appendChild(chipsHost);
+    host$.appendChild(listHost);
+    update();
+  }
+
+  function go() {
+    state.tab = tabFromHash();
+    state.f = {}; state.q = ''; state.limit = PAGE;
+    renderTabs();
+    if (data) renderView();
+    window.scrollTo(0, 0);
+  }
+
+  function showLoading() {
+    host$.textContent = '';
+    host$.appendChild(el('p', { class: 'note', role: 'status' }, 'Lade Daten …'));
+  }
+  function showError() {
+    host$.textContent = '';
+    host$.appendChild(el('div', { class: 'empty', role: 'alert' },
+      el('strong', null, 'KEINE VERBINDUNG'),
+      el('span', null, 'Die Daten konnten nicht geladen werden. Prüfe deine Internetverbindung und versuche es erneut.'),
+      el('button', { class: 'again', type: 'button', onclick: start }, 'Erneut versuchen')));
+  }
+
+  function start() {
+    showLoading();
+    load().then(function () { setStand(); renderView(); }).catch(showError);
+  }
+
+  window.addEventListener('hashchange', go);
+  state.tab = tabFromHash();
+  renderTabs();
+  start();
+
+  if ('serviceWorker' in navigator) {
+    window.addEventListener('load', function () { navigator.serviceWorker.register('sw.js').catch(function () {}); });
+  }
+})();
+</script>
 </body>
 </html>
