@@ -209,7 +209,7 @@ main{flex:1;padding:18px 20px calc(96px + env(safe-area-inset-bottom));display:f
   }
 
   /* ---------- Daten ---------- */
-  var data = null, bandMap = {};
+  var data = null, bandMap = {}, ticketByBand = {};
   function bandGenres(slug) { return (bandMap[slug] && bandMap[slug].genres) || []; }
 
   function load() {
@@ -222,6 +222,15 @@ main{flex:1;padding:18px 20px calc(96px + env(safe-area-inset-bottom));display:f
       data = d;
       bandMap = {};
       d.bands.forEach(function (b) { if (b && b.slug) bandMap[b.slug] = b; });
+      ticketByBand = {};
+      d.concerts.forEach(function (c) {
+        if (!c || !c.band_slug || !safeUrl(c.ticket_url)) return;
+        var dt = parseDay(c.date);
+        if (!dt || dt < today) return;
+        var cur = ticketByBand[c.band_slug];
+        var isDe = String(c.country).toUpperCase() === 'DE', curDe = cur && String(cur.country).toUpperCase() === 'DE';
+        if (!cur || (isDe && !curDe) || (isDe === curDe && String(c.date) < String(cur.date))) ticketByBand[c.band_slug] = c;
+      });
     });
   }
 
@@ -236,7 +245,7 @@ main{flex:1;padding:18px 20px calc(96px + env(safe-area-inset-bottom));display:f
     var items = data.news.filter(function (n) { return String(n.date) === max; });
     var tips = items.filter(function (n) { return n.is_tip === true; }).length;
     var diff = dayDiff(d);
-    var when = diff === 0 ? 'heute' : diff === -1 ? 'gestern' : 'vom ' + d.toLocaleDateString('de-DE', { day: 'numeric', month: 'numeric' }) + '.';
+    var when = diff === 0 ? 'heute' : diff === -1 ? 'gestern' : 'vom ' + d.toLocaleDateString('de-DE', { day: 'numeric', month: 'numeric' });
     var s = items.length + (items.length === 1 ? ' frisches Schmiedestück ' : ' frische Schmiedestücke ') + when;
     if (tips) s += ' · ' + tips + (tips === 1 ? ' Geheimtipp' : ' Geheimtipps');
     return s;
@@ -257,7 +266,7 @@ main{flex:1;padding:18px 20px calc(96px + env(safe-area-inset-bottom));display:f
     var letters = ['A', 'B', 'C', 'D'];
     var d = parseDay(q.date);
     var diff = d ? dayDiff(d) : 0;
-    var when = diff === 0 ? 'Heute' : diff === -1 ? 'Gestern' : d ? d.toLocaleDateString('de-DE', { day: 'numeric', month: 'numeric' }) + '.' : '';
+    var when = diff === 0 ? 'Heute' : diff === -1 ? 'Gestern' : d ? d.toLocaleDateString('de-DE', { day: 'numeric', month: 'numeric' }) : '';
     var box = el('section', { class: 'quiz', 'aria-label': 'Metal-Quiz des Tages' });
 
     /* Eingeklappt: schmale Zeile, nachdem das Quiz beantwortet wurde */
@@ -413,6 +422,14 @@ main{flex:1;padding:18px 20px calc(96px + env(safe-area-inset-bottom));display:f
     return 'https://open.spotify.com/search/' + encodeURIComponent((band || '') + ' ' + (title || ''));
   }
 
+  function ticketLink(slug, band) {
+    var c = slug && ticketByBand[slug];
+    if (!c) return null;
+    var d = parseDay(c.date);
+    var when = d ? d.toLocaleDateString('de-DE', { day: 'numeric', month: 'numeric' }) + ' ' : '';
+    return link(c.ticket_url, 'Tickets', band + ': Tickets für ' + when + (c.city || 'das nächste Konzert'));
+  }
+
   function newsCard(n) {
     var genre = bandGenres(n.band_slug)[0];
     var band = n.band || 'Special';
@@ -430,7 +447,8 @@ main{flex:1;padding:18px 20px calc(96px + env(safe-area-inset-bottom));display:f
         el('span', { class: 'acts' },
           link(n.spotify_url, 'Spotify', band + ': auf Spotify öffnen'),
           link(n.youtube_url, 'YouTube', band + ': auf YouTube öffnen'),
-          link(n.article_url, 'Artikel', band + ': Artikel lesen'))));
+          link(n.article_url, 'Artikel', band + ': Artikel lesen'),
+          ticketLink(n.band_slug, band))));
   }
 
   function dateBlock(d) {
