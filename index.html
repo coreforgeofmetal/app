@@ -69,6 +69,11 @@ main{flex:1;padding:18px 20px calc(96px + env(safe-area-inset-bottom));display:f
 .res strong{font-family:'Oswald',sans-serif;font-weight:700;font-size:16px;letter-spacing:1.5px}
 .res .good{color:#4BE08E}.res .bad{color:var(--red-hi)}
 .sr{position:absolute;left:-9999px}
+.quiz.bar{padding:0}
+.qbar{display:flex;align-items:center;gap:12px;width:100%;min-height:52px;padding:8px 16px;border:0;background:transparent;color:var(--text);text-align:left;cursor:pointer;border-radius:14px}
+.qbar .qk-t{flex:none;font-family:'Oswald',sans-serif;font-weight:600;font-size:14px;letter-spacing:3px;color:var(--red-hi)}
+.qbar .qb-s{flex:1;min-width:0;font-size:13px;color:var(--soft)}
+.qbar svg{flex:none;color:var(--muted)}
 .search{display:flex;align-items:center;gap:10px;height:48px;padding:0 14px;border:1px solid var(--card-line);border-radius:14px;background:var(--card)}
 .search:focus-within{border-color:var(--red-hi)}
 .search input{flex:1;min-width:0;border:0;outline:0;background:transparent;color:var(--text);font-family:inherit;font-size:16px}
@@ -254,31 +259,44 @@ main{flex:1;padding:18px 20px calc(96px + env(safe-area-inset-bottom));display:f
     var diff = d ? dayDiff(d) : 0;
     var when = diff === 0 ? 'Heute' : diff === -1 ? 'Gestern' : d ? d.toLocaleDateString('de-DE', { day: 'numeric', month: 'numeric' }) + '.' : '';
     var box = el('section', { class: 'quiz', 'aria-label': 'Metal-Quiz des Tages' });
-    var resultHost = el('div', { 'aria-live': 'polite' });
-    var btns = [];
-    function reveal(pick, save) {
-      btns.forEach(function (b, i) {
-        b.disabled = true;
-        if (i === q.correct) { b.className = 'opt ok'; b.appendChild(el('span', { class: 'mark', 'aria-hidden': 'true' }, '✓')); b.appendChild(el('span', { class: 'sr' }, ' (richtig)')); }
-        else if (i === pick) { b.className = 'opt no'; b.appendChild(el('span', { class: 'mark', 'aria-hidden': 'true' }, '✗')); b.appendChild(el('span', { class: 'sr' }, ' (falsch)')); }
-      });
-      resultHost.textContent = '';
-      resultHost.appendChild(el('div', { class: 'res' },
-        el('strong', { class: pick === q.correct ? 'good' : 'bad' }, pick === q.correct ? 'RICHTIG! 🤘' : 'KNAPP DANEBEN.'),
-        q.explanation ? el('span', null, q.explanation) : null));
-      if (save) quizSet(q.id, pick);
+
+    /* Eingeklappt: schmale Zeile, nachdem das Quiz beantwortet wurde */
+    function bar(pick) {
+      var ok = pick === q.correct;
+      box.className = 'quiz bar';
+      box.textContent = '';
+      box.appendChild(el('button', { class: 'qbar', type: 'button', 'aria-expanded': 'false', onclick: function () { full(pick); } },
+        el('span', { class: 'qk-t' }, 'METAL-QUIZ'),
+        el('span', { class: 'qb-s' }, (ok ? '✓ Richtig beantwortet' : '✗ Beantwortet') + ' · täglich ein neues Quiz'),
+        svg('<path d="M6 9l6 6 6-6"/>', 18)));
     }
-    q.options.forEach(function (text, i) {
-      var b = el('button', { class: 'opt', type: 'button', onclick: function () { reveal(i, true); } },
-        el('span', { class: 'let', 'aria-hidden': 'true' }, letters[i] || String(i + 1)), el('span', { class: 'ot' }, text));
-      btns.push(b);
-    });
-    box.appendChild(el('div', { class: 'qk' }, el('span', null, 'METAL-QUIZ'), when ? el('span', { class: 'pill' }, when) : null));
-    box.appendChild(el('h2', { class: 'qq' }, q.question));
-    box.appendChild(el('div', { class: 'opts', role: 'group', 'aria-label': 'Antworten' }, btns));
-    box.appendChild(resultHost);
+
+    /* Aufgeklappt: Frage, Antworten, ggf. Auflösung */
+    function full(pick) {
+      var answered = pick !== null;
+      box.className = 'quiz';
+      box.textContent = '';
+      var btns = q.options.map(function (text, i) {
+        var cls = 'opt', mark = null;
+        if (answered && i === q.correct) { cls += ' ok'; mark = [el('span', { class: 'mark', 'aria-hidden': 'true' }, '✓'), el('span', { class: 'sr' }, ' (richtig)')]; }
+        else if (answered && i === pick) { cls += ' no'; mark = [el('span', { class: 'mark', 'aria-hidden': 'true' }, '✗'), el('span', { class: 'sr' }, ' (falsch)')]; }
+        return el('button', { class: cls, type: 'button', disabled: answered,
+          onclick: function () { quizSet(q.id, i); full(i); } },
+          el('span', { class: 'let', 'aria-hidden': 'true' }, letters[i] || String(i + 1)), el('span', { class: 'ot' }, text), mark);
+      });
+      box.appendChild(el('div', { class: 'qk' }, el('span', null, 'METAL-QUIZ'), when ? el('span', { class: 'pill' }, when) : null));
+      box.appendChild(el('h2', { class: 'qq' }, q.question));
+      box.appendChild(el('div', { class: 'opts', role: 'group', 'aria-label': 'Antworten' }, btns));
+      if (answered) {
+        box.appendChild(el('div', { class: 'res', role: 'status' },
+          el('strong', { class: pick === q.correct ? 'good' : 'bad' }, pick === q.correct ? 'RICHTIG! 🤘' : 'KNAPP DANEBEN.'),
+          q.explanation ? el('span', null, q.explanation) : null));
+        box.appendChild(el('button', { class: 'more', type: 'button', onclick: function () { bar(pick); } }, 'Zuklappen'));
+      }
+    }
+
     var saved = quizGet(q.id);
-    if (saved !== null && saved >= 0 && saved < q.options.length) reveal(saved, false);
+    if (saved !== null && saved >= 0 && saved < q.options.length) bar(saved); else full(null);
     return box;
   }
 
