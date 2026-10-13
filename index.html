@@ -525,7 +525,7 @@ main{flex:1;padding:18px 20px calc(96px + env(safe-area-inset-bottom));display:f
           genre ? el('span', { class: 'pill' }, genre) : null),
         el('span', { class: 'acts' },
           link(r.spotify_url || spotifySearch(r.band, r.title), 'Spotify', r.band + ' – ' + r.title + ': auf Spotify suchen'),
-          link(r.url, 'Ansehen', r.band + ' – ' + r.title + ': Details öffnen'))));
+          link(youtubeSearch(r.band, String(r.title || '').replace(/\s+-\s+(Single|EP)$/i, '')), 'YouTube', r.band + ' – ' + r.title + ': auf YouTube suchen'))));
   }
 
   function concertCard(c) {
