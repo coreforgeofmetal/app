@@ -395,7 +395,13 @@ main{flex:1;padding:18px 20px calc(96px + env(safe-area-inset-bottom));display:f
   function baseItems() {
     if (state.tab === 'news') return data.news;
     if (state.tab === 'tipps') return data.news.filter(function (n) { return n.is_tip === true; });
-    if (state.tab === 'neu') return data.releases.slice().sort(function (a, b) { return String(b.date).localeCompare(String(a.date)); });
+    if (state.tab === 'neu') return data.releases.slice().sort(function (a, b) {
+      /* Angekündigtes zuerst, das nächste Datum vorn; danach Erschienenes, das neueste zuerst */
+      var da = parseDay(a.date), db = parseDay(b.date);
+      var ua = da && dayDiff(da) > 0, ub = db && dayDiff(db) > 0;
+      if (ua !== ub) return ua ? -1 : 1;
+      return ua ? String(a.date).localeCompare(String(b.date)) : String(b.date).localeCompare(String(a.date));
+    });
     return data.concerts.filter(function (c) { var d = parseDay(c.date); return d && d >= today; })
       .sort(function (a, b) { return String(a.date).localeCompare(String(b.date)) || String(a.band).localeCompare(String(b.band)); });
   }
@@ -463,7 +469,10 @@ main{flex:1;padding:18px 20px calc(96px + env(safe-area-inset-bottom));display:f
     return u ? el('a', { class: 'lnk', href: u, target: '_blank', rel: 'noopener noreferrer', 'aria-label': label }, text) : null;
   }
   function spotifySearch(band, title) {
-    return 'https://open.spotify.com/search/' + encodeURIComponent((band || '') + ' ' + (title || ''));
+    return 'https://open.spotify.com/search/' + encodeURIComponent(((band || '') + ' ' + (title || '')).trim());
+  }
+  function youtubeSearch(band, title) {
+    return 'https://www.youtube.com/results?search_query=' + encodeURIComponent(((band || '') + ' ' + (title || 'official')).trim());
   }
 
   function ticketLink(slug, band) {
@@ -489,8 +498,8 @@ main{flex:1;padding:18px 20px calc(96px + env(safe-area-inset-bottom));display:f
           genre ? el('span', { class: 'pill' }, genre) : null,
           n.is_tip ? el('span', { class: 'pill hot' }, 'Geheimtipp') : (n.format && n.format !== 'digest' && FORMATS[n.format] ? el('span', { class: 'pill' }, FORMATS[n.format]) : null)),
         el('span', { class: 'acts' },
-          link(n.spotify_url, 'Spotify', band + ': auf Spotify öffnen'),
-          link(n.youtube_url, 'YouTube', band + ': auf YouTube öffnen'),
+          link(n.spotify_url || (n.band_slug ? spotifySearch(band, '') : null), 'Spotify', band + ': auf Spotify öffnen'),
+          link(n.youtube_url || (n.band_slug ? youtubeSearch(band) : null), 'YouTube', band + ': auf YouTube öffnen'),
           link(n.article_url, 'Artikel', band + ': Artikel lesen'),
           ticketLink(n.band_slug, band))));
   }
@@ -568,7 +577,7 @@ main{flex:1;padding:18px 20px calc(96px + env(safe-area-inset-bottom));display:f
       listHost.appendChild(el('button', { class: 'more', type: 'button', onclick: function () { state.limit += PAGE; renderList(base); } },
         'Mehr anzeigen (' + (items.length - shown.length) + ' weitere)'));
     }
-    if (tab === 'konzerte') listHost.appendChild(el('p', { class: 'note' }, 'Termine und Ticketlinks stammen von Ticketmaster. Angaben ohne Gewähr.'));
+    if (tab === 'konzerte') listHost.appendChild(el('p', { class: 'note' }, 'Termine und Ticketlinks stammen von Ticketmaster und Veranstaltern. Angaben ohne Gewähr.'));
   }
 
   function update() {
