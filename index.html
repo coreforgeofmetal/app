@@ -72,6 +72,21 @@ main{flex:1;padding:18px 20px calc(96px + env(safe-area-inset-bottom));display:f
 .quiz.bar{padding:0}
 .qbar{display:flex;align-items:center;gap:12px;width:100%;min-height:52px;padding:8px 16px;border:0;background:transparent;color:var(--text);text-align:left;cursor:pointer;border-radius:14px}
 .qbar .qk-t{flex:none;font-family:'Oswald',sans-serif;font-weight:600;font-size:14px;letter-spacing:3px;color:var(--red-hi)}
+
+.reel{display:flex;flex-direction:column;gap:12px;padding:16px;background:linear-gradient(160deg,#2A0D0D 0%,var(--card) 70%);border:1px solid var(--red-deep);border-radius:14px}
+.reel .rk{display:flex;align-items:center;justify-content:space-between;font-family:'Oswald',sans-serif;font-weight:600;font-size:14px;letter-spacing:3px;color:var(--red-hi)}
+.reel .rk .rd{font-size:12px;letter-spacing:1px;color:var(--soft);font-family:inherit;font-weight:400}
+.reel .rt{margin:0;font-family:'Oswald',sans-serif;font-weight:600;font-size:20px;line-height:1.25}
+.rframe{position:relative;width:100%;aspect-ratio:16/9;background:#000;border-radius:12px;overflow:hidden;border:1px solid var(--card-line)}
+.rframe.play{aspect-ratio:auto;height:min(520px,72vh)}
+.rframe img{width:100%;height:100%;object-fit:cover;display:block}
+.rframe iframe{width:100%;height:100%;border:0;display:block}
+.rplay{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;width:100%;border:0;background:rgba(0,0,0,.28);cursor:pointer;color:#fff}
+.rplay span{display:flex;align-items:center;justify-content:center;width:64px;height:64px;border-radius:50%;background:var(--red-hi,#E10600);box-shadow:0 2px 12px rgba(0,0,0,.5)}
+.rmore[hidden]{display:none}
+.rmore{display:flex;flex-direction:column;gap:6px;padding-top:2px}
+.rmore a{display:flex;gap:10px;align-items:baseline;min-height:44px;padding:8px 0;color:var(--text);text-decoration:none;border-top:1px solid var(--card-line);font-size:15px}
+.rmore a small{flex:none;color:var(--soft);font-size:12px}
 .qbar .qb-s{flex:1;min-width:0;font-size:13px;color:var(--soft)}
 .qbar svg{flex:none;color:var(--muted)}
 .search{display:flex;align-items:center;gap:10px;height:48px;padding:0 14px;border:1px solid var(--card-line);border-radius:14px;background:var(--card)}
@@ -262,7 +277,7 @@ main{flex:1;padding:18px 20px calc(96px + env(safe-area-inset-bottom));display:f
       return r.json();
     }).then(function (d) {
       d = d || {};
-      ['bands', 'news', 'concerts', 'releases', 'quiz'].forEach(function (k) { if (!Array.isArray(d[k])) d[k] = []; });
+      ['bands', 'news', 'concerts', 'releases', 'quiz', 'reels'].forEach(function (k) { if (!Array.isArray(d[k])) d[k] = []; });
       data = d;
       bandMap = {};
       d.bands.forEach(function (b) { if (b && b.slug) bandMap[b.slug] = b; });
@@ -293,6 +308,60 @@ main{flex:1;padding:18px 20px calc(96px + env(safe-area-inset-bottom));display:f
     var s = items.length + (items.length === 1 ? ' frisches Schmiedestück ' : ' frische Schmiedestücke ') + when;
     if (tips) s += ' · ' + tips + (tips === 1 ? ' Geheimtipp' : ' Geheimtipps');
     return s;
+  }
+
+
+  /* ---------- Reel des Tages ---------- */
+  function ytId(u) {
+    var m = String(u || '').match(/(?:youtube\.com\/(?:shorts\/|embed\/|watch\?(?:.*&)?v=)|youtu\.be\/)([A-Za-z0-9_-]{11})/);
+    return m ? m[1] : null;
+  }
+  function sortedReels() {
+    return (data.reels || []).filter(function (r) { return r && r.title && safeUrl(r.url); })
+      .sort(function (a, b) { return String(b.date).localeCompare(String(a.date)); });
+  }
+  function reelCard() {
+    var list = sortedReels();
+    if (!list.length) return null;
+    var r = list[0];
+    var d = parseDay(r.date), diff = d ? dayDiff(d) : null;
+    var kicker = diff === 0 ? 'REEL DES TAGES' : 'NEUESTES REEL';
+    var when = d ? d.toLocaleDateString('de-DE', { day: 'numeric', month: 'numeric', year: 'numeric' }) : '';
+    var box = el('section', { class: 'reel', 'aria-label': 'Reel des Tages' });
+    box.appendChild(el('div', { class: 'rk' }, el('span', null, kicker), el('span', { class: 'rd' }, when)));
+    box.appendChild(el('h2', { class: 'rt' }, r.title));
+    var id = ytId(r.url);
+    if (id) {
+      var frame = el('div', { class: 'rframe' });
+      var img = el('img', { src: 'https://i.ytimg.com/vi/' + id + '/hqdefault.jpg', alt: '', loading: 'lazy' });
+      img.addEventListener('error', function () { img.style.display = 'none'; });
+      var btn = el('button', { class: 'rplay', type: 'button', 'aria-label': 'Reel abspielen: ' + r.title,
+        onclick: function () {
+          frame.className = 'rframe play';
+          frame.textContent = '';
+          frame.appendChild(el('iframe', { src: 'https://www.youtube-nocookie.com/embed/' + id + '?autoplay=1&rel=0&playsinline=1',
+            title: r.title, allow: 'autoplay; encrypted-media; picture-in-picture; fullscreen', allowfullscreen: true }));
+        } }, el('span', null, svg('<path d="M8 5v14l11-7z" fill="currentColor" stroke="none"/>', 28)));
+      frame.appendChild(img); frame.appendChild(btn);
+      box.appendChild(frame);
+    } else {
+      box.appendChild(link(r.url, 'Reel ansehen', 'Reel ansehen: ' + r.title));
+    }
+    if (list.length > 1) {
+      var more = el('div', { class: 'rmore', hidden: true });
+      list.slice(1, 11).forEach(function (x) {
+        more.appendChild(el('a', { href: safeUrl(x.url), target: '_blank', rel: 'noopener noreferrer' },
+          el('small', null, (parseDay(x.date) ? parseDay(x.date).toLocaleDateString('de-DE', { day: 'numeric', month: 'numeric' }) : '')), x.title));
+      });
+      var tog = el('button', { class: 'more', type: 'button', 'aria-expanded': 'false', onclick: function () {
+        var open = more.hasAttribute('hidden');
+        if (open) more.removeAttribute('hidden'); else more.setAttribute('hidden', '');
+        tog.setAttribute('aria-expanded', open ? 'true' : 'false');
+        tog.textContent = open ? 'Frühere Reels ausblenden' : 'Frühere Reels';
+      } }, 'Frühere Reels');
+      box.appendChild(tog); box.appendChild(more);
+    }
+    return box;
   }
 
   /* ---------- Quiz ---------- */
@@ -596,6 +665,8 @@ main{flex:1;padding:18px 20px calc(96px + env(safe-area-inset-bottom));display:f
     listHost = el('div', { class: 'list' });
     host$.appendChild(el('div', { class: 'head' }, el('h1', null, t.title), el('p', null, typeof t.sub === 'function' ? t.sub() : t.sub)));
     if (state.tab === 'news') {
+      var rc = reelCard();
+      if (rc) host$.appendChild(rc);
       var qz = latestQuiz();
       if (qz) host$.appendChild(quizCard(qz));
     }
