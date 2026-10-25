@@ -289,6 +289,7 @@ main{flex:1;padding:18px 20px calc(96px + env(safe-area-inset-bottom));display:f
             d.news = d.news.filter(function (n) { var x = parseDay(n && n.date); return !x || x <= today; });
       data = d;
             d.news = d.news.filter(function (n) { var x = parseDay(n && n.date); return !x || x <= today; });
+            d.news = d.news.filter(function (n) { var x = parseDay(n && n.date); return !x || x <= today; });
       bandMap = {};
       d.bands.forEach(function (b) { if (b && b.slug) bandMap[b.slug] = b; });
       ticketByBand = {};
