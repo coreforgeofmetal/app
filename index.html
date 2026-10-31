@@ -140,6 +140,16 @@ main{flex:1;padding:18px 20px calc(96px + env(safe-area-inset-bottom));display:f
 .more,.again{min-height:48px;padding:0 20px;border:1px solid var(--card-line);border-radius:14px;background:var(--card);color:var(--text);font-weight:600;font-size:15px;cursor:pointer}
 .again{background:var(--red);border-color:var(--red);color:#fff}
 .note{font-size:12px;color:var(--muted);text-align:center;padding:8px 0 0}
+.bandrow{display:flex;align-items:center;justify-content:space-between;gap:8px;min-width:0}
+.fav{flex:none;width:40px;height:40px;margin:-10px -10px -10px 0;border:0;background:transparent;color:var(--muted);cursor:pointer;display:inline-flex;align-items:center;justify-content:center;border-radius:20px}
+.fav[aria-pressed="true"]{color:var(--red-hi)}
+.share{min-height:44px;padding:0 10px;display:inline-flex;align-items:center;gap:4px;border:0;background:transparent;color:var(--red-hi);font-weight:600;font-size:14px;cursor:pointer}
+.mychips{display:flex;flex-wrap:wrap;gap:8px}
+.mychip{height:36px;padding:0 8px 0 14px;display:inline-flex;align-items:center;gap:6px;border:1px solid var(--red-deep);border-radius:18px;background:var(--tint);color:var(--text);font-size:14px;cursor:pointer}
+.mychip span{color:var(--muted);font-size:16px;line-height:1}
+.sugg{display:flex;flex-wrap:wrap;gap:8px}
+.sugg .chip{height:36px}
+.sec{display:flex;flex-direction:column;gap:12px}
 
 /* Start-Animation: Die Schmiede wird angeheizt */
 #splash{position:fixed;inset:0;z-index:100;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:22px;
@@ -275,6 +285,51 @@ main{flex:1;padding:18px 20px calc(96px + env(safe-area-inset-bottom));display:f
     return groups;
   }
 
+  /* ---------- Umami-Ereignisse ---------- */
+  function track(name) { try { if (window.umami && typeof window.umami.track === 'function') window.umami.track(name); } catch (e) { /* egal */ } }
+
+  /* ---------- Meine Bands (nur im Browser dieses Geräts gespeichert) ---------- */
+  var FAV_KEY = 'cfom-fav';
+  function favList() { try { var v = JSON.parse(localStorage.getItem(FAV_KEY) || '[]'); return Array.isArray(v) ? v : []; } catch (e) { return []; } }
+  function favSave(v) { try { localStorage.setItem(FAV_KEY, JSON.stringify(v)); } catch (e) { /* ohne Speicher weiter */ } }
+  function isFav(slug) { return !!slug && favList().indexOf(slug) !== -1; }
+  function toggleFav(slug) {
+    var v = favList(), i = v.indexOf(slug);
+    if (i === -1) { v.push(slug); track('fav-add'); } else { v.splice(i, 1); track('fav-remove'); }
+    favSave(v);
+    return i === -1;
+  }
+  var HEART = '<path d="M12 20s-7-4.4-9.2-8.6C1.4 8.6 3 5 6.5 5c2 0 3.5 1.2 5.5 3.4C14 6.2 15.5 5 17.5 5 21 5 22.6 8.6 21.2 11.4 19 15.6 12 20 12 20z"/>';
+  function favBtn(slug, band) {
+    if (!slug) return null;
+    var on = isFav(slug);
+    var b = el('button', { class: 'fav', type: 'button', 'aria-pressed': on ? 'true' : 'false',
+      'aria-label': (on ? band + ' aus Meine Bands entfernen' : band + ' zu Meine Bands hinzufügen'),
+      onclick: function () {
+        var now = toggleFav(slug);
+        if (state.tab === 'fav') { renderView(); return; }
+        document.querySelectorAll('.fav[data-slug="' + slug + '"]').forEach(function (x) {
+          x.setAttribute('aria-pressed', now ? 'true' : 'false');
+          x.setAttribute('aria-label', now ? band + ' aus Meine Bands entfernen' : band + ' zu Meine Bands hinzufügen');
+          x.replaceChild(svg(HEART, 22, now ? ' fill="currentColor"' : ''), x.firstChild);
+        });
+      } }, svg(HEART, 22, on ? ' fill="currentColor"' : ''));
+    b.setAttribute('data-slug', slug);
+    return b;
+  }
+
+  /* ---------- Teilen ---------- */
+  var APP_URL = 'https://www.coreforgeofmetal.de';
+  function shareBtn(n) {
+    var text = (n.band ? n.band + ': ' : '') + (n.headline || '') + ' \u2013 mehr in der Core Forge App:';
+    return el('button', { class: 'share', type: 'button', 'aria-label': 'Meldung teilen: ' + (n.headline || ''),
+      onclick: function () {
+        track('share');
+        if (navigator.share) { navigator.share({ title: 'Core Forge of Metal', text: text, url: APP_URL }).catch(function () {}); }
+        else { window.open('https://wa.me/?text=' + encodeURIComponent(text + ' ' + APP_URL), '_blank', 'noopener'); }
+      } }, svg('<circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><path d="M8.6 13.5l6.8 4M15.4 6.5l-6.8 4"/>', 16), 'Teilen');
+  }
+
   /* ---------- Daten ---------- */
   var data = null, bandMap = {}, ticketByBand = {};
   function bandGenres(slug) { return (bandMap[slug] && bandMap[slug].genres) || []; }
@@ -286,10 +341,8 @@ main{flex:1;padding:18px 20px calc(96px + env(safe-area-inset-bottom));display:f
     }).then(function (d) {
       d = d || {};
       ['bands', 'news', 'concerts', 'releases', 'quiz', 'reels'].forEach(function (k) { if (!Array.isArray(d[k])) d[k] = []; });
-            d.news = d.news.filter(function (n) { var x = parseDay(n && n.date); return !x || x <= today; });
+      d.news = d.news.filter(function (n) { var x = parseDay(n && n.date); return !x || x <= today; });
       data = d;
-            d.news = d.news.filter(function (n) { var x = parseDay(n && n.date); return !x || x <= today; });
-            d.news = d.news.filter(function (n) { var x = parseDay(n && n.date); return !x || x <= today; });
       bandMap = {};
       d.bands.forEach(function (b) { if (b && b.slug) bandMap[b.slug] = b; });
       ticketByBand = {};
@@ -522,16 +575,16 @@ main{flex:1;padding:18px 20px calc(96px + env(safe-area-inset-bottom));display:f
 
   /* ---------- Reiter ---------- */
   var TABS = [
-    { id: 'news', label: 'News', title: 'FRISCH GESCHMIEDET', sub: newsSub,
+    { id: 'news', label: 'Heute', title: 'FRISCH GESCHMIEDET', sub: newsSub,
       icon: '<path d="M4 5h13v14H6a2 2 0 0 1-2-2z"/><path d="M17 9h3v8a2 2 0 0 1-2 2"/><path d="M8 9h5M8 13h5"/>' },
-    { id: 'neu', label: 'Neu', title: 'FRISCH GEPRESST', sub: 'Neue Alben, EPs und Singles – direkt aus dem Presswerk.',
+    { id: 'neu', label: 'Releases', title: 'FRISCH GEPRESST', sub: 'Neue Alben, EPs und Singles – direkt aus dem Presswerk.',
       icon: '<circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="2.5"/><path d="M12 3v3"/>' },
     { id: 'konzerte', label: 'Konzerte', title: 'LIVE & LAUT', sub: 'Kommende Shows mit direktem Ticketlink.',
       icon: '<rect x="3" y="6" width="18" height="12" rx="2"/><path d="M3 11h18"/>' },
-    { id: 'tipps', label: 'Tipps', title: 'AUS DEM UNTERGRUND', sub: 'Bands, die du kennen solltest.',
-      icon: '<path d="M12 3l2.6 5.6 6.1.7-4.5 4.2 1.2 6L12 16.5 6.6 19.5l1.2-6L3.3 9.3l6.1-.7z"/>' }
+    { id: 'fav', label: 'Meine Bands', title: 'MEINE BANDS', sub: 'Deine Lieblingsbands: News, Releases und Konzerte auf einen Blick.',
+      icon: '<path d="M12 20s-7-4.4-9.2-8.6C1.4 8.6 3 5 6.5 5c2 0 3.5 1.2 5.5 3.4C14 6.2 15.5 5 17.5 5 21 5 22.6 8.6 21.2 11.4 19 15.6 12 20 12 20z"/>' }
   ];
-  var FORMATS = { digest: 'Digest', backflash: 'Backflash', ballade: 'Ballade', geheimtipp: 'Geheimtipp', rueckblick: 'Rückblick' };
+  var FORMATS = { digest: 'Digest', backflash: 'Backflash', ballade: 'Ballade', geheimtipp: 'Tipp-Freitag', rueckblick: 'Rückblick' };
   var TYPES = { album: 'Album', ep: 'EP', single: 'Single' };
 
   var state = { tab: 'news', f: {}, q: '', limit: PAGE };
@@ -540,6 +593,7 @@ main{flex:1;padding:18px 20px calc(96px + env(safe-area-inset-bottom));display:f
 
   function tabFromHash() {
     var h = (location.hash || '').replace('#', '');
+    if (h === 'tipps') return 'news';
     return TABS.some(function (t) { return t.id === h; }) ? h : 'news';
   }
 
@@ -555,7 +609,6 @@ main{flex:1;padding:18px 20px calc(96px + env(safe-area-inset-bottom));display:f
   /* Basisliste je Reiter (ohne Filter) */
   function baseItems() {
     if (state.tab === 'news') return data.news;
-    if (state.tab === 'tipps') return data.news.filter(function (n) { return n.is_tip === true; });
     if (state.tab === 'neu') return data.releases.slice().sort(function (a, b) {
       /* Angekündigtes zuerst, das nächste Datum vorn; danach Erschienenes, das neueste zuerst */
       var da = parseDay(a.date), db = parseDay(b.date);
@@ -578,7 +631,8 @@ main{flex:1;padding:18px 20px calc(96px + env(safe-area-inset-bottom));display:f
     return base.filter(function (it) {
       var f = state.f;
       if (f.genre && bandGenres(it.band_slug).indexOf(f.genre) === -1) return false;
-      if (f.format && it.format !== f.format) return false;
+      if (f.format === 'tip') { if (it.is_tip !== true) return false; }
+      else if (f.format && it.format !== f.format) return false;
       if (f.type && it.type !== f.type) return false;
       if (f.scope === 'de' && String(it.country).toUpperCase() !== 'DE') return false;
       if (f.scope === 'monat') {
@@ -610,12 +664,12 @@ main{flex:1;padding:18px 20px calc(96px + env(safe-area-inset-bottom));display:f
   function renderChips(base) {
     chipsHost.textContent = '';
     var rows = [];
-    if (state.tab === 'konzerte') rows.push(chipRow('Zeitraum und Land', [[null, 'Alle'], ['monat', 'Dieser Monat'], ['de', 'Deutschland']], 'scope'));
+    if (state.tab === 'konzerte') rows.push(chipRow('Zeitraum und Land', [['de', 'Deutschland'], ['monat', 'Dieser Monat'], [null, 'Alle Länder']], 'scope'));
     if (state.tab === 'neu') rows.push(chipRow('Art der Veröffentlichung', [[null, 'Alle'], ['album', 'Alben'], ['ep', 'EPs'], ['single', 'Singles']], 'type'));
     if (state.tab === 'news') {
       var present = {};
       base.forEach(function (n) { if (n.format) present[n.format] = true; });
-      var fo = [[null, 'Alle Formate']];
+      var fo = [[null, 'Alle Formate'], ['tip', 'Geheimtipps']];
       Object.keys(FORMATS).forEach(function (k) { if (present[k]) fo.push([k, FORMATS[k]]); });
       if (fo.length > 2) rows.push(chipRow('Format', fo, 'format'));
     }
@@ -651,7 +705,7 @@ main{flex:1;padding:18px 20px calc(96px + env(safe-area-inset-bottom));display:f
       el('div', { class: 'row' },
         el('div', { class: 'avatar', 'aria-hidden': 'true' }, band.charAt(0).toUpperCase()),
         el('div', { class: 'body' },
-          el('span', { class: 'band' }, band),
+          el('span', { class: 'bandrow' }, el('span', { class: 'band' }, band), favBtn(n.band_slug, band)),
           el('span', { class: 'hl' }, n.headline || ''),
           n.question ? el('span', { class: 'q' }, n.question) : null)),
       el('div', { class: 'foot' },
@@ -662,7 +716,8 @@ main{flex:1;padding:18px 20px calc(96px + env(safe-area-inset-bottom));display:f
           link(n.spotify_url || (n.band_slug ? spotifySearch(band, '') : null), 'Spotify', band + ': auf Spotify öffnen'),
           link(n.youtube_url || (n.band_slug ? youtubeSearch(band) : null), 'YouTube', band + ': auf YouTube öffnen'),
           link(n.article_url, 'Artikel', band + ': Artikel lesen'),
-          ticketLink(n.band_slug, band))));
+          ticketLink(n.band_slug, band),
+          shareBtn(n))));
   }
 
   function dateBlock(d) {
@@ -677,7 +732,7 @@ main{flex:1;padding:18px 20px calc(96px + env(safe-area-inset-bottom));display:f
       el('div', { class: 'row when' },
         d ? dateBlock(d) : null,
         el('div', { class: 'body' },
-          el('span', { class: 'band' }, r.band),
+          el('span', { class: 'bandrow' }, el('span', { class: 'band' }, r.band), favBtn(r.band_slug, r.band)),
           el('span', { class: 'hl' }, r.title),
           d ? el('span', { class: 'sub' }, (upcoming ? 'Erscheint am ' : 'Erschienen am ') + d.toLocaleDateString('de-DE', { day: 'numeric', month: 'long', year: 'numeric' })) : null)),
       el('div', { class: 'foot' },
@@ -697,7 +752,7 @@ main{flex:1;padding:18px 20px calc(96px + env(safe-area-inset-bottom));display:f
       el('div', { class: 'row when' },
         d ? dateBlock(d) : null,
         el('div', { class: 'body' },
-          el('span', { class: 'hl' }, c.band),
+          el('span', { class: 'bandrow' }, el('span', { class: 'hl' }, c.band), favBtn(c.band_slug, c.band)),
           c.venue ? el('span', { class: 'sub' }, c.venue) : null,
           place ? el('span', { class: 'where' }, place) : null,
           d ? el('span', { class: 'sub' }, d.toLocaleDateString('de-DE', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })) : null),
@@ -747,6 +802,65 @@ main{flex:1;padding:18px 20px calc(96px + env(safe-area-inset-bottom));display:f
     renderList(base);
   }
 
+  function bandsSorted() {
+    var count = {};
+    data.news.forEach(function (n) { if (n.band_slug) count[n.band_slug] = (count[n.band_slug] || 0) + 3; });
+    data.concerts.forEach(function (c) { if (c.band_slug) count[c.band_slug] = (count[c.band_slug] || 0) + 1; });
+    return data.bands.filter(function (b) { return b.slug && b.name; })
+      .sort(function (a, b) { return (count[b.slug] || 0) - (count[a.slug] || 0) || a.name.localeCompare(b.name, 'de'); });
+  }
+  function renderFav() {
+    var favs = favList().filter(function (s) { return bandMap[s]; });
+    var all = bandsSorted();
+    /* Bands hinzufügen: Suche + Vorschläge */
+    var suggHost = el('div', { class: 'sugg', role: 'group', 'aria-label': 'Bands hinzufügen' });
+    function fillSugg(q) {
+      suggHost.textContent = '';
+      var nq = norm(q).trim();
+      all.filter(function (b) { return favs.indexOf(b.slug) === -1 && (!nq || norm(b.name).indexOf(nq) !== -1); }).slice(0, nq ? 12 : 10)
+        .forEach(function (b) {
+          suggHost.appendChild(el('button', { class: 'chip', type: 'button', 'aria-label': b.name + ' hinzufügen',
+            onclick: function () { toggleFav(b.slug); renderView(); } }, '+ ' + b.name));
+        });
+      if (!suggHost.childNodes.length) suggHost.appendChild(el('span', { class: 'sub' }, 'Keine passende Band gefunden.'));
+    }
+    var inp = el('input', { type: 'search', placeholder: 'Band suchen und hinzufügen', autocomplete: 'off', enterkeyhint: 'search',
+      oninput: function () { fillSugg(inp.value); } });
+    function addBlock() {
+      host$.appendChild(el('h2', { class: 'gh' }, favs.length ? 'Weitere Bands hinzufügen' : 'Beliebte Bands'));
+      host$.appendChild(el('label', { class: 'search' }, svg('<circle cx="11" cy="11" r="7"/><path d="M20 20l-4-4"/>', 20, ' style="color:#A8A8A8"'), el('span', { class: 'sr' }, 'Band suchen'), inp));
+      host$.appendChild(suggHost);
+      fillSugg('');
+    }
+
+    if (!favs.length) {
+      host$.appendChild(el('div', { class: 'empty' }, el('strong', null, 'NOCH KEINE BANDS'),
+        el('span', null, 'Tippe auf das \u2665 bei einer Band oder füge sie hier hinzu. Dann siehst du ihre News, neuen Releases und Konzerte gesammelt an einem Ort.')));
+      addBlock();
+      return;
+    }
+    host$.appendChild(el('div', { class: 'mychips', role: 'group', 'aria-label': 'Meine Bands' },
+      favs.map(function (s) {
+        return el('button', { class: 'mychip', type: 'button', 'aria-label': bandMap[s].name + ' entfernen',
+          onclick: function () { toggleFav(s); renderView(); } }, bandMap[s].name, el('span', { 'aria-hidden': 'true' }, '\u00D7'));
+      })));
+
+    function section(title, items, card, empty) {
+      var sec = el('section', { class: 'sec' }, el('h2', { class: 'gh' }, title));
+      if (!items.length) sec.appendChild(el('p', { class: 'sub' }, empty));
+      items.forEach(function (it) { sec.appendChild(card(it)); });
+      host$.appendChild(sec);
+    }
+    var inFav = function (it) { return favs.indexOf(it.band_slug) !== -1; };
+    section('Konzerte', data.concerts.filter(function (c) { var d = parseDay(c.date); return inFav(c) && d && d >= today; })
+      .sort(function (a, b) { return String(a.date).localeCompare(String(b.date)); }).slice(0, 15),
+      concertCard, 'Aktuell keine Termine bekannt.');
+    section('Releases', data.releases.filter(inFav).sort(function (a, b) { return String(b.date).localeCompare(String(a.date)); }).slice(0, 10),
+      releaseCard, 'Noch keine Veröffentlichungen in den letzten Wochen.');
+    section('News', data.news.filter(inFav).slice(0, 20), newsCard, 'Noch keine News zu deinen Bands.');
+    addBlock();
+  }
+
   function renderView() {
     var t = TABS.filter(function (x) { return x.id === state.tab; })[0];
     document.title = t.title.charAt(0) + t.title.slice(1).toLowerCase() + ' – Core Forge of Metal';
@@ -756,6 +870,7 @@ main{flex:1;padding:18px 20px calc(96px + env(safe-area-inset-bottom));display:f
     chipsHost = el('div');
     listHost = el('div', { class: 'list' });
     host$.appendChild(el('div', { class: 'head' }, el('h1', null, t.title), el('p', null, typeof t.sub === 'function' ? t.sub() : t.sub)));
+    if (state.tab === 'fav') { renderFav(); return; }
     if (state.tab === 'news') {
       var rc = reelCard();
       if (rc) host$.appendChild(rc);
@@ -768,9 +883,11 @@ main{flex:1;padding:18px 20px calc(96px + env(safe-area-inset-bottom));display:f
     update();
   }
 
+  function defaults() { return state.tab === 'konzerte' ? { scope: 'de' } : {}; }
   function go() {
     state.tab = tabFromHash();
-    state.f = {}; state.q = ''; state.limit = PAGE;
+    state.f = defaults(); state.q = ''; state.limit = PAGE;
+    track('tab-' + state.tab);
     renderTabs();
     if (data) renderView();
     window.scrollTo(0, 0);
@@ -806,6 +923,7 @@ main{flex:1;padding:18px 20px calc(96px + env(safe-area-inset-bottom));display:f
 
   window.addEventListener('hashchange', go);
   state.tab = tabFromHash();
+  state.f = defaults();
   renderTabs();
   start();
 
