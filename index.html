@@ -114,6 +114,8 @@ main{flex:1;padding:18px 20px calc(96px + env(safe-area-inset-bottom));display:f
 .row{display:flex;gap:14px;padding:14px;min-width:0}
 .avatar{width:52px;height:52px;flex:none;border-radius:10px;background:var(--tint);display:flex;align-items:center;justify-content:center;
   font-family:'Oswald',sans-serif;font-weight:700;font-size:22px;color:var(--red-hi)}
+.avatar.pic{width:64px;height:64px;overflow:hidden;background:#000;box-shadow:0 0 0 1px var(--card-line)}
+.avatar.pic img{width:100%;height:100%;object-fit:cover;display:block}
 .body{display:flex;flex-direction:column;gap:4px;min-width:0;flex:1}
 .band{font-size:12px;font-weight:600;letter-spacing:2px;color:var(--red-hi);text-transform:uppercase;overflow-wrap:anywhere}
 .hl{font-family:'Oswald',sans-serif;font-weight:600;font-size:18px;line-height:1.2;overflow-wrap:anywhere}
@@ -698,12 +700,23 @@ main{flex:1;padding:18px 20px calc(96px + env(safe-area-inset-bottom));display:f
     return link(c.ticket_url, 'Tickets', band + ': Tickets für ' + when + (c.city || 'das nächste Konzert'));
   }
 
+  function newsAvatar(n, band) {
+    var letter = band.charAt(0).toUpperCase();
+    var u = safeUrl(n.image_url);
+    if (!u) return el('div', { class: 'avatar', 'aria-hidden': 'true' }, letter);
+    var box = el('div', { class: 'avatar pic', 'aria-hidden': 'true' });
+    var img = el('img', { src: u, alt: '', loading: 'lazy', decoding: 'async', referrerpolicy: 'no-referrer' });
+    img.addEventListener('error', function () { box.className = 'avatar'; box.textContent = letter; });
+    box.appendChild(img);
+    return box;
+  }
+
   function newsCard(n) {
     var genre = bandGenres(n.band_slug)[0];
     var band = n.band || 'Special';
     return el('article', { class: 'card' },
       el('div', { class: 'row' },
-        el('div', { class: 'avatar', 'aria-hidden': 'true' }, band.charAt(0).toUpperCase()),
+        newsAvatar(n, band),
         el('div', { class: 'body' },
           el('span', { class: 'bandrow' }, el('span', { class: 'band' }, band), favBtn(n.band_slug, band)),
           el('span', { class: 'hl' }, n.headline || ''),
