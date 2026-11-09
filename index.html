@@ -477,7 +477,27 @@ a.avlink{flex:none;display:block;border-radius:10px}
     if (gap === 0) return { count: v.count, state: 'done', best: v.best };
     if (gap === 1) return { count: v.count, state: 'risk', best: v.best };
     if (gap === 2 && v.joker !== weekKey(today)) return { count: v.count, state: 'joker', best: v.best };
+    if (gap === 2 && v.rescue !== k && rescueQuiz()) return { count: v.count, state: 'rescue', best: v.best };
     return { count: 0, state: 'off', best: v.best };
+  }
+  /* Streak retten: ein Tag verpasst, Joker der Woche schon weg -> Frage von gestern richtig beantworten */
+  function yesterdayKey() { var y = new Date(today); y.setDate(y.getDate() - 1); return dkey(y); }
+  function rescueQuiz() {
+    var yk = yesterdayKey();
+    return (data.quiz || []).filter(function (q) {
+      return q.date === yk && q.question && Array.isArray(q.options) && q.options.length >= 2 && typeof q.correct === 'number';
+    })[0] || null;
+  }
+  function rescueAnswer(ok) {
+    var v = streakLoad();
+    v.rescue = dkey(today);
+    if (ok) {
+      v.count += 1;
+      v.last = yesterdayKey();
+      if (v.count > (v.best || 0)) v.best = v.count;
+    }
+    streakSave(v);
+    try { if (window.umami && typeof window.umami.track === 'function') window.umami.track(ok ? 'streak-gerettet' : 'streak-rettung-verpasst'); } catch (e) { /* egal */ }
   }
   /* Wird aufgerufen, wenn ein NEUES Quiz erstmals beantwortet wird */
   function streakHit() {
@@ -513,6 +533,7 @@ a.avlink{flex:none;display:block;border-radius:10px}
     var hint = null;
     if (v.state === 'done') hint = el('span', { class: 'ss ok' }, '\u2713 Heute erledigt');
     else if (v.state === 'risk') hint = el('span', { class: 'ss' }, 'Beantworte heute das Quiz, damit die Flamme weiterbrennt.');
+    else if (v.state === 'rescue') hint = el('span', { class: 'ss' }, '\uD83D\uDEDF Streak in Gefahr! Beantworte die Frage von gestern richtig, dann brennt deine Flamme weiter.');
     else if (v.state === 'joker') hint = el('span', { class: 'ss' }, '\uD83D\uDEE1\uFE0F Joker bereit: Beantworte heute das Quiz, dann rettet er deine Streak.');
     box.appendChild(el('span', { class: 'sf', 'aria-hidden': 'true' }, '\uD83D\uDD25'));
     box.appendChild(el('div', { class: 'sb' }, el('span', { class: 'st' }, head), el('span', { class: 'ss' }, sub), hint));
@@ -527,7 +548,16 @@ a.avlink{flex:none;display:block;border-radius:10px}
     }
   }
 
-  function quizCard(q) {
+  /* Schlüssel aus ID + Frage: wird die Tagesfrage später am Tag ausgetauscht, ist sie wieder beantwortbar (Streak zählt trotzdem nur einmal pro Tag) */
+  function quizKey(q) {
+    var t = String(q.question || ''), h = 0;
+    for (var i = 0; i < t.length; i++) { h = ((h << 5) - h + t.charCodeAt(i)) | 0; }
+    return q.id + '-' + (h >>> 0).toString(36);
+  }
+
+  function quizCard(q, rescue) {
+    var qk = quizKey(q);
+    var rescued = null;
     var letters = ['A', 'B', 'C', 'D'];
     var d = parseDay(q.date);
     var diff = d ? dayDiff(d) : 0;
@@ -556,10 +586,15 @@ a.avlink{flex:none;display:block;border-radius:10px}
         if (answered && i === q.correct) { cls += ' ok'; mark = [el('span', { class: 'mark', 'aria-hidden': 'true' }, '✓'), el('span', { class: 'sr' }, ' (richtig)')]; }
         else if (answered && i === pick) { cls += ' no'; mark = [el('span', { class: 'mark', 'aria-hidden': 'true' }, '✗'), el('span', { class: 'sr' }, ' (falsch)')]; }
         return el('button', { class: cls, type: 'button', disabled: answered,
-          onclick: function () { var first = quizGet(q.id) === null; quizSet(q.id, i); lastHit = first ? streakHit() : null; full(i); refreshStreak(); } },
+          onclick: function () {
+            var first = quizGet(qk) === null; quizSet(qk, i);
+            if (rescue) { rescued = i === q.correct; rescueAnswer(rescued); lastHit = null; }
+            else { lastHit = first ? streakHit() : null; }
+            full(i); refreshStreak();
+          } },
           el('span', { class: 'let', 'aria-hidden': 'true' }, letters[i] || String(i + 1)), el('span', { class: 'ot' }, text), mark);
       });
-      box.appendChild(el('div', { class: 'qk' }, el('span', null, 'METAL-QUIZ'), when ? el('span', { class: 'pill' }, when) : null));
+      box.appendChild(el('div', { class: 'qk' }, el('span', null, rescue ? 'RETTUNGS-QUIZ' : 'METAL-QUIZ'), when ? el('span', { class: 'pill' }, when) : null));
       box.appendChild(el('h2', { class: 'qq' }, q.question));
       box.appendChild(el('div', { class: 'opts', role: 'group', 'aria-label': 'Antworten' }, btns));
       if (answered) {
@@ -567,11 +602,16 @@ a.avlink{flex:none;display:block;border-radius:10px}
           el('strong', { class: pick === q.correct ? 'good' : 'bad' }, pick === q.correct ? 'RICHTIG! 🤘' : 'KNAPP DANEBEN.'),
           q.explanation ? el('span', null, q.explanation) : null,
           lastHit ? el('span', null, '\uD83D\uDD25 Streak: ' + lastHit.count + (lastHit.count === 1 ? ' Tag' : ' Tage') + (lastHit.used ? ' (Joker eingesetzt)' : '') + (lastHit.title ? ' \u00B7 Neuer Titel: \u201E' + lastHit.title + '\u201C!' : '')) : null));
-        box.appendChild(el('button', { class: 'more', type: 'button', onclick: function () { bar(pick); } }, 'Zuklappen'));
+        if (rescue) {
+          box.appendChild(el('span', { class: 'res' }, rescued ? '\uD83D\uDD25 Streak gerettet! Jetzt noch das heutige Quiz.' : 'Schade – die Streak ist gerissen. Mit dem heutigen Quiz startest du neu.'));
+          box.appendChild(el('button', { class: 'more', type: 'button', onclick: function () { renderView(); } }, 'Zum heutigen Quiz'));
+        } else {
+          box.appendChild(el('button', { class: 'more', type: 'button', onclick: function () { bar(pick); } }, 'Zuklappen'));
+        }
       }
     }
 
-    var saved = quizGet(q.id);
+    var saved = quizGet(qk);
     if (saved !== null && saved >= 0 && saved < q.options.length) bar(saved); else full(null);
     return box;
   }
@@ -897,7 +937,11 @@ a.avlink{flex:none;display:block;border-radius:10px}
       var rc = reelCard();
       if (rc) host$.appendChild(rc);
       var qz = latestQuiz();
-      if (qz) { streakNode = streakCard(); host$.appendChild(streakNode); host$.appendChild(quizCard(qz)); }
+      if (qz) {
+        streakNode = streakCard(); host$.appendChild(streakNode);
+        var rq = streakView().state === 'rescue' ? rescueQuiz() : null;
+        host$.appendChild(rq ? quizCard(rq, true) : quizCard(qz));
+      }
     }
     host$.appendChild(el('label', { class: 'search' }, svg('<circle cx="11" cy="11" r="7"/><path d="M20 20l-4-4"/>', 20, ' style="color:#A8A8A8"'), el('span', { class: 'sr', style: 'position:absolute;left:-9999px' }, 'Suchen'), searchInput));
     host$.appendChild(chipsHost);
