@@ -38,6 +38,10 @@ button{font-family:inherit}
 .wm b{font-family:'Oswald',sans-serif;font-weight:700;font-size:22px;letter-spacing:2px;white-space:nowrap}
 .wm span{font-family:'Oswald',sans-serif;font-weight:500;font-size:12px;letter-spacing:5px;color:var(--red-hi);margin-top:3px}
 .stand{font-size:12px;color:var(--muted);text-align:right;line-height:1.3}
+.tr{display:flex;flex-direction:column;align-items:flex-end;gap:4px}
+.lang{display:inline-flex;border:1px solid #4A1515;border-radius:999px;overflow:hidden}
+.lang button{background:none;border:0;color:var(--muted);font:600 12px/1 'Oswald',sans-serif;letter-spacing:1px;padding:7px 11px;min-height:30px;cursor:pointer}
+.lang button[aria-pressed="true"]{background:#FF3B30;color:#0B0606}
 
 main{flex:1;padding:18px 20px 18px;display:flex;flex-direction:column;gap:14px;min-width:0}
 
@@ -216,7 +220,7 @@ a.avlink{flex:none;display:block;border-radius:10px}
       <img src="icon-192.png" width="44" height="44" alt="">
       <span class="wm"><b>CORE FORGE</b><span>OF METAL</span></span>
     </a>
-    <div class="stand" id="stand" aria-live="polite"></div>
+    <div class="tr"><div class="lang" id="lang" role="group" aria-label="Sprache / Language"><button type="button" data-l="de" aria-pressed="true">DE</button><button type="button" data-l="en" aria-pressed="false">EN</button></div><div class="stand" id="stand" aria-live="polite"></div></div>
   </header>
   <main id="view" tabindex="-1">
     <noscript><p class="empty">Für diese App wird JavaScript benötigt. Aktiviere es in deinem Browser und lade die Seite neu.</p></noscript>
@@ -228,6 +232,36 @@ a.avlink{flex:none;display:block;border-radius:10px}
 <script>
 (function () {
   'use strict';
+
+  /* ---------- Sprache (DE/EN): Wahl im Browser gespeichert, sonst Handy-Sprache ---------- */
+  var LANG_KEY = 'cfom-lang';
+  var LANG = (function () {
+    try { var s = localStorage.getItem(LANG_KEY); if (s === 'de' || s === 'en') return s; } catch (e) { /* ohne Speicher weiter */ }
+    var l = String((navigator.languages && navigator.languages[0]) || navigator.language || 'de').toLowerCase();
+    return l.indexOf('de') === 0 ? 'de' : 'en';
+  })();
+  var EN = LANG === 'en';
+  var LOC = EN ? 'en-GB' : 'de-DE';
+  function T(de, en) { return EN ? en : de; }
+  /* Inhaltsfeld in der gewählten Sprache (Fallback Deutsch) */
+  function tx(o, f) { var v = o && EN ? o[f + '_en'] : null; return (v !== null && v !== undefined && v !== '') ? v : (o ? o[f] : ''); }
+  document.documentElement.lang = LANG;
+  (function () {
+    var sp = document.querySelector('#splash .msg'); if (sp) sp.textContent = T('Die Schmiede wird angeheizt …', 'Heating up the forge …');
+    var br = document.querySelector('.brand'); if (br) br.setAttribute('aria-label', T('Core Forge of Metal – zu den News', 'Core Forge of Metal – to the news'));
+    var lg = document.querySelector('.legal a'); if (lg) lg.textContent = T('Datenschutz', 'Privacy (German)');
+    var nv = document.querySelector('nav.tabs'); if (nv) nv.setAttribute('aria-label', T('Hauptnavigation', 'Main navigation'));
+    document.querySelectorAll('#lang button').forEach(function (b) {
+      b.setAttribute('aria-pressed', b.getAttribute('data-l') === LANG ? 'true' : 'false');
+      b.addEventListener('click', function () {
+        var l = b.getAttribute('data-l');
+        if (l === LANG) return;
+        try { localStorage.setItem(LANG_KEY, l); } catch (e) { /* ohne Speicher weiter */ }
+        try { if (window.umami && typeof window.umami.track === 'function') window.umami.track('sprache-' + l); } catch (e) { /* egal */ }
+        location.reload();
+      });
+    });
+  })();
 
   /* ---------- Hilfsfunktionen ---------- */
   var DATA_URL = 'data/data.json';
@@ -266,20 +300,20 @@ a.avlink{flex:none;display:block;border-radius:10px}
   var now = new Date();
   var today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
   function dayDiff(d) { return Math.round((d - today) / 86400000); }
-  var MON = ['JAN', 'FEB', 'MÄR', 'APR', 'MAI', 'JUN', 'JUL', 'AUG', 'SEP', 'OKT', 'NOV', 'DEZ'];
+  var MON = EN ? ['JAN', 'FEB', 'MAR', 'APR', 'MAY', 'JUN', 'JUL', 'AUG', 'SEP', 'OCT', 'NOV', 'DEC'] : ['JAN', 'FEB', 'MÄR', 'APR', 'MAI', 'JUN', 'JUL', 'AUG', 'SEP', 'OKT', 'NOV', 'DEZ'];
   function dayHeading(d) {
     var diff = dayDiff(d);
-    if (diff === 0) return 'Heute';
-    if (diff === -1) return 'Gestern';
+    if (diff === 0) return T('Heute', 'Today');
+    if (diff === -1) return T('Gestern', 'Yesterday');
     var o = { weekday: 'long', day: 'numeric', month: 'long' };
     if (d.getFullYear() !== today.getFullYear()) o.year = 'numeric';
-    return d.toLocaleDateString('de-DE', o);
+    return d.toLocaleDateString(LOC, o);
   }
   function monthHeading(d) {
-    return d.toLocaleDateString('de-DE', { month: 'long', year: 'numeric' });
+    return d.toLocaleDateString(LOC, { month: 'long', year: 'numeric' });
   }
   var regionNames = null;
-  try { regionNames = new Intl.DisplayNames(['de'], { type: 'region' }); } catch (e) { /* ältere Browser */ }
+  try { regionNames = new Intl.DisplayNames([LANG], { type: 'region' }); } catch (e) { /* ältere Browser */ }
   function country(code) {
     if (!code) return '';
     try { return regionNames ? regionNames.of(String(code).toUpperCase()) : code; } catch (e) { return code; }
@@ -313,13 +347,13 @@ a.avlink{flex:none;display:block;border-radius:10px}
     if (!slug) return null;
     var on = isFav(slug);
     var b = el('button', { class: 'fav', type: 'button', 'aria-pressed': on ? 'true' : 'false',
-      'aria-label': (on ? band + ' aus Meine Bands entfernen' : band + ' zu Meine Bands hinzufügen'),
+      'aria-label': (on ? band + T(' aus Meine Bands entfernen', ' – remove from My Bands') : band + T(' zu Meine Bands hinzufügen', ' – add to My Bands')),
       onclick: function () {
         var now = toggleFav(slug);
         if (state.tab === 'fav') { renderView(); return; }
         document.querySelectorAll('.fav[data-slug="' + slug + '"]').forEach(function (x) {
           x.setAttribute('aria-pressed', now ? 'true' : 'false');
-          x.setAttribute('aria-label', now ? band + ' aus Meine Bands entfernen' : band + ' zu Meine Bands hinzufügen');
+          x.setAttribute('aria-label', now ? band + T(' aus Meine Bands entfernen', ' – remove from My Bands') : band + T(' zu Meine Bands hinzufügen', ' – add to My Bands'));
           x.replaceChild(svg(HEART, 22, now ? ' fill="currentColor"' : ''), x.firstChild);
         });
       } }, svg(HEART, 22, on ? ' fill="currentColor"' : ''));
@@ -330,13 +364,13 @@ a.avlink{flex:none;display:block;border-radius:10px}
   /* ---------- Teilen ---------- */
   var APP_URL = 'https://www.coreforgeofmetal.de';
   function shareBtn(n) {
-    var text = (n.band ? n.band + ': ' : '') + (n.headline || '') + ' \u2013 mehr in der Core Forge App:';
-    return el('button', { class: 'share', type: 'button', 'aria-label': 'Meldung teilen: ' + (n.headline || ''),
+    var text = (n.band ? n.band + ': ' : '') + (tx(n, 'headline') || '') + T(' \u2013 mehr in der Core Forge App:', ' \u2013 more in the Core Forge app:');
+    return el('button', { class: 'share', type: 'button', 'aria-label': T('Meldung teilen: ', 'Share: ') + (tx(n, 'headline') || ''),
       onclick: function () {
         track('share');
         if (navigator.share) { navigator.share({ title: 'Core Forge of Metal', text: text, url: APP_URL }).catch(function () {}); }
         else { window.open('https://wa.me/?text=' + encodeURIComponent(text + ' ' + APP_URL), '_blank', 'noopener'); }
-      } }, svg('<circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><path d="M8.6 13.5l6.8 4M15.4 6.5l-6.8 4"/>', 16), 'Teilen');
+      } }, svg('<circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><path d="M8.6 13.5l6.8 4M15.4 6.5l-6.8 4"/>', 16), T('Teilen', 'Share'));
   }
 
   /* ---------- Daten ---------- */
@@ -368,7 +402,7 @@ a.avlink{flex:none;display:block;border-radius:10px}
 
   /* Dynamische Zeile unter "Frisch geschmiedet" */
   function newsSub() {
-    var fallback = 'Die Metal-News des Tages – heiß vom Amboss.';
+    var fallback = T('Die Metal-News des Tages – heiß vom Amboss.', 'Today\u2019s metal news – hot off the anvil.');
     if (!data || !data.news.length) return fallback;
     var max = '';
     data.news.forEach(function (n) { if (n.date && String(n.date) > max) max = String(n.date); });
@@ -377,9 +411,9 @@ a.avlink{flex:none;display:block;border-radius:10px}
     var items = data.news.filter(function (n) { return String(n.date) === max; });
     var tips = items.filter(function (n) { return n.is_tip === true; }).length;
     var diff = dayDiff(d);
-    var when = diff === 0 ? 'heute' : diff === -1 ? 'gestern' : 'vom ' + d.toLocaleDateString('de-DE', { day: 'numeric', month: 'numeric' });
-    var s = items.length + (items.length === 1 ? ' frisches Schmiedestück ' : ' frische Schmiedestücke ') + when;
-    if (tips) s += ' · ' + tips + (tips === 1 ? ' Geheimtipp' : ' Geheimtipps');
+    var when = diff === 0 ? T('heute', 'today') : diff === -1 ? T('gestern', 'yesterday') : T('vom ', 'from ') + d.toLocaleDateString(LOC, { day: 'numeric', month: EN ? 'short' : 'numeric' });
+    var s = items.length + (items.length === 1 ? T(' frisches Schmiedestück ', ' fresh piece from the forge ') : T(' frische Schmiedestücke ', ' fresh pieces from the forge ')) + when;
+    if (tips) s += ' · ' + tips + (tips === 1 ? T(' Geheimtipp', ' hidden gem') : T(' Geheimtipps', ' hidden gems'));
     return s;
   }
 
@@ -398,9 +432,9 @@ a.avlink{flex:none;display:block;border-radius:10px}
     if (!list.length) return null;
     var r = list[0];
     var d = parseDay(r.date), diff = d ? dayDiff(d) : null;
-    var kicker = diff === 0 ? 'REEL DES TAGES' : 'NEUESTES REEL';
-    var when = d ? d.toLocaleDateString('de-DE', { day: 'numeric', month: 'numeric', year: 'numeric' }) : '';
-    var box = el('section', { class: 'reel', 'aria-label': 'Reel des Tages' });
+    var kicker = diff === 0 ? T('REEL DES TAGES', 'REEL OF THE DAY') : T('NEUESTES REEL', 'LATEST REEL');
+    var when = d ? d.toLocaleDateString(LOC, { day: 'numeric', month: 'numeric', year: 'numeric' }) : '';
+    var box = el('section', { class: 'reel', 'aria-label': T('Reel des Tages', 'Reel of the day') });
     box.appendChild(el('div', { class: 'rk' }, el('span', null, kicker), el('span', { class: 'rd' }, when)));
     box.appendChild(el('h2', { class: 'rt' }, r.title));
     var id = ytId(r.url);
@@ -408,7 +442,7 @@ a.avlink{flex:none;display:block;border-radius:10px}
       var frame = el('div', { class: 'rframe' });
       var img = el('img', { src: 'https://i.ytimg.com/vi/' + id + '/hqdefault.jpg', alt: '', loading: 'lazy' });
       img.addEventListener('error', function () { img.style.display = 'none'; });
-      var btn = el('button', { class: 'rplay', type: 'button', 'aria-label': 'Reel abspielen: ' + r.title,
+      var btn = el('button', { class: 'rplay', type: 'button', 'aria-label': T('Reel abspielen: ', 'Play reel: ') + r.title,
         onclick: function () {
           frame.className = 'rframe play';
           frame.textContent = '';
@@ -418,20 +452,20 @@ a.avlink{flex:none;display:block;border-radius:10px}
       frame.appendChild(img); frame.appendChild(btn);
       box.appendChild(frame);
     } else {
-      box.appendChild(link(r.url, 'Reel ansehen', 'Reel ansehen: ' + r.title));
+      box.appendChild(link(r.url, T('Reel ansehen', 'Watch reel'), T('Reel ansehen: ', 'Watch reel: ') + r.title));
     }
     if (list.length > 1) {
       var more = el('div', { class: 'rmore', hidden: true });
       list.slice(1, 11).forEach(function (x) {
         more.appendChild(el('a', { href: safeUrl(x.url), target: '_blank', rel: 'noopener noreferrer' },
-          el('small', null, (parseDay(x.date) ? parseDay(x.date).toLocaleDateString('de-DE', { day: 'numeric', month: 'numeric' }) : '')), x.title));
+          el('small', null, (parseDay(x.date) ? parseDay(x.date).toLocaleDateString(LOC, { day: 'numeric', month: 'numeric' }) : '')), x.title));
       });
       var tog = el('button', { class: 'more', type: 'button', 'aria-expanded': 'false', onclick: function () {
         var open = more.hasAttribute('hidden');
         if (open) more.removeAttribute('hidden'); else more.setAttribute('hidden', '');
         tog.setAttribute('aria-expanded', open ? 'true' : 'false');
-        tog.textContent = open ? 'Frühere Reels ausblenden' : 'Frühere Reels';
-      } }, 'Frühere Reels');
+        tog.textContent = open ? T('Frühere Reels ausblenden', 'Hide earlier reels') : T('Frühere Reels', 'Earlier reels');
+      } }, T('Frühere Reels', 'Earlier reels'));
       box.appendChild(tog); box.appendChild(more);
     }
     return box;
@@ -450,7 +484,7 @@ a.avlink{flex:none;display:block;border-radius:10px}
   }
   /* ---------- Streak (nur im Browser dieses Geräts gespeichert) ---------- */
   var STREAK_KEY = 'cfom-streak';
-  var TITLES = [{ n: 3, t: 'Funke' }, { n: 7, t: 'Glut' }, { n: 30, t: 'Inferno' }];
+  var TITLES = [{ n: 3, t: T('Funke', 'Spark') }, { n: 7, t: T('Glut', 'Ember') }, { n: 30, t: 'Inferno' }];
   function dkey(d) { return d.getFullYear() + '-' + ('0' + (d.getMonth() + 1)).slice(-2) + '-' + ('0' + d.getDate()).slice(-2); }
   function weekKey(d) {
     var t = new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()));
@@ -520,21 +554,21 @@ a.avlink{flex:none;display:block;border-radius:10px}
   function nextGoal(n) { for (var i = 0; i < TITLES.length; i++) if (n < TITLES[i].n) return TITLES[i]; return null; }
   function streakCard() {
     var v = streakView(), n = v.count;
-    var box = el('section', { class: 'streak' + (n === 0 ? ' off' : ''), 'aria-label': 'Metal-Streak' });
+    var box = el('section', { class: 'streak' + (n === 0 ? ' off' : ''), 'aria-label': T('Metal-Streak', 'Metal streak') });
     var head, sub;
     if (n === 0) {
-      head = 'STREAK STARTEN';
-      sub = 'Beantworte das Tages-Quiz und zünde deine Flamme. Ab 3 Tagen in Folge gibt\u2019s den Titel \u201EFunke\u201C.';
+      head = T('STREAK STARTEN', 'START YOUR STREAK');
+      sub = T('Beantworte das Tages-Quiz und zünde deine Flamme. Ab 3 Tagen in Folge gibt\u2019s den Titel \u201EFunke\u201C.', 'Answer the daily quiz and light your flame. 3 days in a row earns you the title \u201CSpark\u201D.');
     } else {
-      head = (n === 1 ? '1 TAG' : n + ' TAGE') + ' IN FOLGE';
+      head = (n === 1 ? T('1 TAG', '1 DAY') : n + T(' TAGE', ' DAYS')) + T(' IN FOLGE', ' IN A ROW');
       var t = titleFor(n), g = nextGoal(n);
-      sub = (t ? t + ' \u00B7 ' : '') + (g ? 'noch ' + (g.n - n) + (g.n - n === 1 ? ' Tag' : ' Tage') + ' bis \u201E' + g.t + '\u201C' : 'Höchste Stufe erreicht');
+      sub = (t ? t + ' \u00B7 ' : '') + (g ? T('noch ', '') + (g.n - n) + (g.n - n === 1 ? T(' Tag', ' more day') : T(' Tage', ' more days')) + T(' bis \u201E', ' to \u201C') + g.t + '\u201C' : T('Höchste Stufe erreicht', 'Top level reached'));
     }
     var hint = null;
-    if (v.state === 'done') hint = el('span', { class: 'ss ok' }, '\u2713 Heute erledigt');
-    else if (v.state === 'risk') hint = el('span', { class: 'ss' }, 'Beantworte heute das Quiz, damit die Flamme weiterbrennt.');
-    else if (v.state === 'rescue') hint = el('span', { class: 'ss' }, '\uD83D\uDEDF Streak in Gefahr! Beantworte die Frage von gestern richtig, dann brennt deine Flamme weiter.');
-    else if (v.state === 'joker') hint = el('span', { class: 'ss' }, '\uD83D\uDEE1\uFE0F Joker bereit: Beantworte heute das Quiz, dann rettet er deine Streak.');
+    if (v.state === 'done') hint = el('span', { class: 'ss ok' }, T('\u2713 Heute erledigt', '\u2713 Done for today'));
+    else if (v.state === 'risk') hint = el('span', { class: 'ss' }, T('Beantworte heute das Quiz, damit die Flamme weiterbrennt.', 'Answer today\u2019s quiz to keep the flame burning.'));
+    else if (v.state === 'rescue') hint = el('span', { class: 'ss' }, T('\uD83D\uDEDF Streak in Gefahr! Beantworte die Frage von gestern richtig, dann brennt deine Flamme weiter.', '\uD83D\uDEDF Streak in danger! Answer yesterday\u2019s question correctly to keep your flame burning.'));
+    else if (v.state === 'joker') hint = el('span', { class: 'ss' }, T('\uD83D\uDEE1\uFE0F Joker bereit: Beantworte heute das Quiz, dann rettet er deine Streak.', '\uD83D\uDEE1\uFE0F Joker ready: answer today\u2019s quiz and it saves your streak.'));
     box.appendChild(el('span', { class: 'sf', 'aria-hidden': 'true' }, '\uD83D\uDD25'));
     box.appendChild(el('div', { class: 'sb' }, el('span', { class: 'st' }, head), el('span', { class: 'ss' }, sub), hint));
     return box;
@@ -561,8 +595,10 @@ a.avlink{flex:none;display:block;border-radius:10px}
     var letters = ['A', 'B', 'C', 'D'];
     var d = parseDay(q.date);
     var diff = d ? dayDiff(d) : 0;
-    var when = diff === 0 ? 'Heute' : diff === -1 ? 'Gestern' : d ? d.toLocaleDateString('de-DE', { day: 'numeric', month: 'numeric' }) : '';
-    var box = el('section', { class: 'quiz', 'aria-label': 'Metal-Quiz des Tages' });
+    var when = diff === 0 ? T('Heute', 'Today') : diff === -1 ? T('Gestern', 'Yesterday') : d ? d.toLocaleDateString(LOC, { day: 'numeric', month: 'numeric' }) : '';
+    var box = el('section', { class: 'quiz', 'aria-label': T('Metal-Quiz des Tages', 'Metal quiz of the day') });
+    var qText = tx(q, 'question'), qExpl = tx(q, 'explanation');
+    var qOpts = (EN && Array.isArray(q.options_en) && q.options_en.length === q.options.length) ? q.options_en : q.options;
     var lastHit = null;
 
     /* Eingeklappt: schmale Zeile, nachdem das Quiz beantwortet wurde */
@@ -572,7 +608,7 @@ a.avlink{flex:none;display:block;border-radius:10px}
       box.textContent = '';
       box.appendChild(el('button', { class: 'qbar', type: 'button', 'aria-expanded': 'false', onclick: function () { full(pick); } },
         el('span', { class: 'qk-t' }, 'METAL-QUIZ'),
-        el('span', { class: 'qb-s' }, (ok ? '✓ Richtig beantwortet' : '✗ Beantwortet') + ' · täglich ein neues Quiz'),
+        el('span', { class: 'qb-s' }, (ok ? T('✓ Richtig beantwortet', '✓ Answered correctly') : T('✗ Beantwortet', '✗ Answered')) + T(' · täglich ein neues Quiz', ' · a new quiz every day')),
         svg('<path d="M6 9l6 6 6-6"/>', 18)));
     }
 
@@ -581,10 +617,10 @@ a.avlink{flex:none;display:block;border-radius:10px}
       var answered = pick !== null;
       box.className = 'quiz';
       box.textContent = '';
-      var btns = q.options.map(function (text, i) {
+      var btns = qOpts.map(function (text, i) {
         var cls = 'opt', mark = null;
-        if (answered && i === q.correct) { cls += ' ok'; mark = [el('span', { class: 'mark', 'aria-hidden': 'true' }, '✓'), el('span', { class: 'sr' }, ' (richtig)')]; }
-        else if (answered && i === pick) { cls += ' no'; mark = [el('span', { class: 'mark', 'aria-hidden': 'true' }, '✗'), el('span', { class: 'sr' }, ' (falsch)')]; }
+        if (answered && i === q.correct) { cls += ' ok'; mark = [el('span', { class: 'mark', 'aria-hidden': 'true' }, '✓'), el('span', { class: 'sr' }, T(' (richtig)', ' (correct)'))]; }
+        else if (answered && i === pick) { cls += ' no'; mark = [el('span', { class: 'mark', 'aria-hidden': 'true' }, '✗'), el('span', { class: 'sr' }, T(' (falsch)', ' (wrong)'))]; }
         return el('button', { class: cls, type: 'button', disabled: answered,
           onclick: function () {
             var first = quizGet(qk) === null; quizSet(qk, i);
@@ -594,46 +630,46 @@ a.avlink{flex:none;display:block;border-radius:10px}
           } },
           el('span', { class: 'let', 'aria-hidden': 'true' }, letters[i] || String(i + 1)), el('span', { class: 'ot' }, text), mark);
       });
-      box.appendChild(el('div', { class: 'qk' }, el('span', null, rescue ? 'RETTUNGS-QUIZ' : 'METAL-QUIZ'), when ? el('span', { class: 'pill' }, when) : null));
-      box.appendChild(el('h2', { class: 'qq' }, q.question));
-      box.appendChild(el('div', { class: 'opts', role: 'group', 'aria-label': 'Antworten' }, btns));
+      box.appendChild(el('div', { class: 'qk' }, el('span', null, rescue ? T('RETTUNGS-QUIZ', 'RESCUE QUIZ') : 'METAL-QUIZ'), when ? el('span', { class: 'pill' }, when) : null));
+      box.appendChild(el('h2', { class: 'qq' }, qText));
+      box.appendChild(el('div', { class: 'opts', role: 'group', 'aria-label': T('Antworten', 'Answers') }, btns));
       if (answered) {
         box.appendChild(el('div', { class: 'res', role: 'status' },
-          el('strong', { class: pick === q.correct ? 'good' : 'bad' }, pick === q.correct ? 'RICHTIG! 🤘' : 'KNAPP DANEBEN.'),
-          q.explanation ? el('span', null, q.explanation) : null,
-          lastHit ? el('span', null, '\uD83D\uDD25 Streak: ' + lastHit.count + (lastHit.count === 1 ? ' Tag' : ' Tage') + (lastHit.used ? ' (Joker eingesetzt)' : '') + (lastHit.title ? ' \u00B7 Neuer Titel: \u201E' + lastHit.title + '\u201C!' : '')) : null));
+          el('strong', { class: pick === q.correct ? 'good' : 'bad' }, pick === q.correct ? T('RICHTIG! 🤘', 'CORRECT! 🤘') : T('KNAPP DANEBEN.', 'SO CLOSE.')),
+          qExpl ? el('span', null, qExpl) : null,
+          lastHit ? el('span', null, '\uD83D\uDD25 Streak: ' + lastHit.count + (lastHit.count === 1 ? T(' Tag', ' day') : T(' Tage', ' days')) + (lastHit.used ? T(' (Joker eingesetzt)', ' (joker used)') : '') + (lastHit.title ? T(' \u00B7 Neuer Titel: \u201E', ' \u00B7 New title: \u201C') + lastHit.title + '\u201C!' : '')) : null));
         if (rescue) {
-          box.appendChild(el('span', { class: 'res' }, rescued ? '\uD83D\uDD25 Streak gerettet! Jetzt noch das heutige Quiz.' : 'Schade – die Streak ist gerissen. Mit dem heutigen Quiz startest du neu.'));
-          box.appendChild(el('button', { class: 'more', type: 'button', onclick: function () { renderView(); } }, 'Zum heutigen Quiz'));
+          box.appendChild(el('span', { class: 'res' }, rescued ? T('\uD83D\uDD25 Streak gerettet! Jetzt noch das heutige Quiz.', '\uD83D\uDD25 Streak saved! Now take today\u2019s quiz.') : T('Schade – die Streak ist gerissen. Mit dem heutigen Quiz startest du neu.', 'Too bad – your streak is broken. Start again with today\u2019s quiz.')));
+          box.appendChild(el('button', { class: 'more', type: 'button', onclick: function () { renderView(); } }, T('Zum heutigen Quiz', 'To today\u2019s quiz')));
         } else {
-          box.appendChild(el('button', { class: 'more', type: 'button', onclick: function () { bar(pick); } }, 'Zuklappen'));
+          box.appendChild(el('button', { class: 'more', type: 'button', onclick: function () { bar(pick); } }, T('Zuklappen', 'Collapse')));
         }
       }
     }
 
     var saved = quizGet(qk);
-    if (saved !== null && saved >= 0 && saved < q.options.length) bar(saved); else full(null);
+    if (saved !== null && saved >= 0 && saved < qOpts.length) bar(saved); else full(null);
     return box;
   }
 
   function setStand() {
     var s = document.getElementById('stand');
     var m = data && /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})/.exec(data.generated_at || '');
-    s.textContent = m ? 'Stand ' + m[3] + '.' + m[2] + '.' + m[1] : '';
+    s.textContent = m ? (EN ? 'Updated ' + m[3] + '/' + m[2] + '/' + m[1] : 'Stand ' + m[3] + '.' + m[2] + '.' + m[1]) : '';
   }
 
   /* ---------- Reiter ---------- */
   var TABS = [
-    { id: 'news', label: 'Heute', title: 'FRISCH GESCHMIEDET', sub: newsSub,
+    { id: 'news', label: T('Heute', 'Today'), title: T('FRISCH GESCHMIEDET', 'FRESHLY FORGED'), sub: newsSub,
       icon: '<path d="M4 5h13v14H6a2 2 0 0 1-2-2z"/><path d="M17 9h3v8a2 2 0 0 1-2 2"/><path d="M8 9h5M8 13h5"/>' },
-    { id: 'neu', label: 'Releases', title: 'FRISCH GEPRESST', sub: 'Neue Alben, EPs und Singles – direkt aus dem Presswerk.',
+    { id: 'neu', label: 'Releases', title: T('FRISCH GEPRESST', 'FRESHLY PRESSED'), sub: T('Neue Alben, EPs und Singles – direkt aus dem Presswerk.', 'New albums, EPs and singles – straight from the pressing plant.'),
       icon: '<circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="2.5"/><path d="M12 3v3"/>' },
-    { id: 'konzerte', label: 'Konzerte', title: 'LIVE & LAUT', sub: 'Kommende Shows mit direktem Ticketlink.',
+    { id: 'konzerte', label: T('Konzerte', 'Concerts'), title: T('LIVE & LAUT', 'LIVE & LOUD'), sub: T('Kommende Shows mit direktem Ticketlink.', 'Upcoming shows with direct ticket links.'),
       icon: '<rect x="3" y="6" width="18" height="12" rx="2"/><path d="M3 11h18"/>' },
-    { id: 'fav', label: 'Meine Bands', title: 'MEINE BANDS', sub: 'Deine Lieblingsbands: News, Releases und Konzerte auf einen Blick.',
+    { id: 'fav', label: T('Meine Bands', 'My Bands'), title: T('MEINE BANDS', 'MY BANDS'), sub: T('Deine Lieblingsbands: News, Releases und Konzerte auf einen Blick.', 'Your favourite bands: news, releases and concerts at a glance.'),
       icon: '<path d="M12 20s-7-4.4-9.2-8.6C1.4 8.6 3 5 6.5 5c2 0 3.5 1.2 5.5 3.4C14 6.2 15.5 5 17.5 5 21 5 22.6 8.6 21.2 11.4 19 15.6 12 20 12 20z"/>' }
   ];
-  var FORMATS = { digest: 'Digest', backflash: 'Backflash', ballade: 'Ballade', geheimtipp: 'Tipp-Freitag', rueckblick: 'Rückblick' };
+  var FORMATS = { digest: 'Digest', backflash: 'Backflash', ballade: T('Ballade', 'Ballad'), geheimtipp: T('Tipp-Freitag', 'Hidden Gem Friday'), rueckblick: T('Rückblick', 'Recap') };
   var TYPES = { album: 'Album', ep: 'EP', single: 'Single' };
 
   var state = { tab: 'news', f: {}, q: '', limit: PAGE };
@@ -672,7 +708,7 @@ a.avlink{flex:none;display:block;border-radius:10px}
   function searchText(it) {
     if (state.tab === 'neu') return it.band + ' ' + it.title;
     if (state.tab === 'konzerte') return [it.band, it.city, it.venue, country(it.country)].join(' ');
-    return [it.band, it.headline, it.song].join(' ');
+    return [it.band, it.headline, it.headline_en, it.song].join(' ');
   }
 
   function filtered(base) {
@@ -708,19 +744,19 @@ a.avlink{flex:none;display:block;border-radius:10px}
     var counts = {};
     base.forEach(function (it) { bandGenres(it.band_slug).forEach(function (g) { counts[g] = (counts[g] || 0) + 1; }); });
     var names = Object.keys(counts).sort(function (a, b) { return counts[b] - counts[a] || a.localeCompare(b, 'de'); }).slice(0, 10);
-    return [[null, 'Alle Genres']].concat(names.map(function (g) { return [g, g]; }));
+    return [[null, T('Alle Genres', 'All genres')]].concat(names.map(function (g) { return [g, g]; }));
   }
   function renderChips(base) {
     chipsHost.textContent = '';
     var rows = [];
-    if (state.tab === 'konzerte') rows.push(chipRow('Zeitraum und Land', [['de', 'Deutschland'], ['monat', 'Dieser Monat'], [null, 'Alle Länder']], 'scope'));
-    if (state.tab === 'neu') rows.push(chipRow('Art der Veröffentlichung', [[null, 'Alle'], ['album', 'Alben'], ['ep', 'EPs'], ['single', 'Singles']], 'type'));
+    if (state.tab === 'konzerte') rows.push(chipRow(T('Zeitraum und Land', 'Period and country'), [['de', T('Deutschland', 'Germany')], ['monat', T('Dieser Monat', 'This month')], [null, T('Alle Länder', 'All countries')]], 'scope'));
+    if (state.tab === 'neu') rows.push(chipRow(T('Art der Veröffentlichung', 'Release type'), [[null, T('Alle', 'All')], ['album', T('Alben', 'Albums')], ['ep', 'EPs'], ['single', 'Singles']], 'type'));
     if (state.tab === 'news') {
       var present = {};
       base.forEach(function (n) { if (n.format) present[n.format] = true; });
-      var fo = [[null, 'Alle Formate'], ['tip', 'Geheimtipps']];
+      var fo = [[null, T('Alle Formate', 'All formats')], ['tip', T('Geheimtipps', 'Hidden gems')]];
       Object.keys(FORMATS).forEach(function (k) { if (present[k]) fo.push([k, FORMATS[k]]); });
-      if (fo.length > 2) rows.push(chipRow('Format', fo, 'format'));
+      if (fo.length > 2) rows.push(chipRow(T('Format', 'Format'), fo, 'format'));
     }
     var go = genreOptions(base);
     if (go.length > 1) rows.push(chipRow('Genre', go, 'genre'));
@@ -743,8 +779,8 @@ a.avlink{flex:none;display:block;border-radius:10px}
     var c = slug && ticketByBand[slug];
     if (!c) return null;
     var d = parseDay(c.date);
-    var when = d ? d.toLocaleDateString('de-DE', { day: 'numeric', month: 'numeric' }) + ' ' : '';
-    return link(c.ticket_url, 'Tickets', band + ': Tickets für ' + when + (c.city || 'das nächste Konzert'));
+    var when = d ? d.toLocaleDateString(LOC, { day: 'numeric', month: 'numeric' }) + ' ' : '';
+    return link(c.ticket_url, 'Tickets', band + T(': Tickets für ', ': tickets for ') + when + (c.city || T('das nächste Konzert', 'the next show')));
   }
 
   function newsAvatar(n, band) {
@@ -767,17 +803,17 @@ a.avlink{flex:none;display:block;border-radius:10px}
         artUrl ? el('a', { class: 'avlink', href: artUrl, target: '_blank', rel: 'noopener noreferrer', tabindex: '-1', 'aria-hidden': 'true', onclick: function () { track('artikel-bild'); } }, newsAvatar(n, band)) : newsAvatar(n, band),
         el('div', { class: 'body' },
           el('span', { class: 'bandrow' }, el('span', { class: 'band' }, band), favBtn(n.band_slug, band)),
-          artUrl ? el('a', { class: 'hl hllink', href: artUrl, target: '_blank', rel: 'noopener noreferrer', 'aria-label': band + ': ' + (n.headline || '') + ' – Artikel lesen', onclick: function () { track('artikel-titel'); } }, n.headline || '')
-                 : el('span', { class: 'hl' }, n.headline || ''),
-          n.question ? el('span', { class: 'q' }, n.question) : null)),
+          artUrl ? el('a', { class: 'hl hllink', href: artUrl, target: '_blank', rel: 'noopener noreferrer', 'aria-label': band + ': ' + (tx(n, 'headline') || '') + T(' – Artikel lesen', ' – read article'), onclick: function () { track('artikel-titel'); } }, tx(n, 'headline') || '')
+                 : el('span', { class: 'hl' }, tx(n, 'headline') || ''),
+          tx(n, 'question') ? el('span', { class: 'q' }, tx(n, 'question')) : null)),
       el('div', { class: 'foot' },
         el('span', { class: 'pills' },
           genre ? el('span', { class: 'pill' }, genre) : null,
-          n.is_tip ? el('span', { class: 'pill hot' }, 'Geheimtipp') : (n.format && n.format !== 'digest' && FORMATS[n.format] ? el('span', { class: 'pill' }, FORMATS[n.format]) : null)),
+          n.is_tip ? el('span', { class: 'pill hot' }, T('Geheimtipp', 'Hidden gem')) : (n.format && n.format !== 'digest' && FORMATS[n.format] ? el('span', { class: 'pill' }, FORMATS[n.format]) : null)),
         el('span', { class: 'acts' },
-          link(n.spotify_url || (n.band_slug ? spotifySearch(band, '') : null), 'Spotify', band + ': auf Spotify öffnen'),
-          link(n.youtube_url || (n.band_slug ? youtubeSearch(band) : null), 'YouTube', band + ': auf YouTube öffnen'),
-          link(n.article_url, 'Artikel', band + ': Artikel lesen'),
+          link(n.spotify_url || (n.band_slug ? spotifySearch(band, '') : null), 'Spotify', band + T(': auf Spotify öffnen', ': open on Spotify')),
+          link(n.youtube_url || (n.band_slug ? youtubeSearch(band) : null), 'YouTube', band + T(': auf YouTube öffnen', ': open on YouTube')),
+          link(n.article_url, T('Artikel', 'Article'), band + T(': Artikel lesen', ': read article')),
           ticketLink(n.band_slug, band),
           shareBtn(n))));
   }
@@ -796,14 +832,14 @@ a.avlink{flex:none;display:block;border-radius:10px}
         el('div', { class: 'body' },
           el('span', { class: 'bandrow' }, el('span', { class: 'band' }, r.band), favBtn(r.band_slug, r.band)),
           el('span', { class: 'hl' }, r.title),
-          d ? el('span', { class: 'sub' }, (upcoming ? 'Erscheint am ' : 'Erschienen am ') + d.toLocaleDateString('de-DE', { day: 'numeric', month: 'long', year: 'numeric' })) : null)),
+          d ? el('span', { class: 'sub' }, (upcoming ? T('Erscheint am ', 'Out on ') : T('Erschienen am ', 'Released on ')) + d.toLocaleDateString(LOC, { day: 'numeric', month: 'long', year: 'numeric' })) : null)),
       el('div', { class: 'foot' },
         el('span', { class: 'pills' },
           el('span', { class: 'pill hot' }, TYPES[r.type] || 'Release'),
           genre ? el('span', { class: 'pill' }, genre) : null),
         el('span', { class: 'acts' },
-          link(r.spotify_url || spotifySearch(r.band, r.title), 'Spotify', r.band + ' – ' + r.title + ': auf Spotify suchen'),
-          link(youtubeSearch(r.band, String(r.title || '').replace(/\s+-\s+(Single|EP)$/i, '')), 'YouTube', r.band + ' – ' + r.title + ': auf YouTube suchen'))));
+          link(r.spotify_url || spotifySearch(r.band, r.title), 'Spotify', r.band + ' – ' + r.title + T(': auf Spotify suchen', ': search on Spotify')),
+          link(youtubeSearch(r.band, String(r.title || '').replace(/\s+-\s+(Single|EP)$/i, '')), 'YouTube', r.band + ' – ' + r.title + T(': auf YouTube suchen', ': search on YouTube')))));
   }
 
   function concertCard(c) {
@@ -817,10 +853,10 @@ a.avlink{flex:none;display:block;border-radius:10px}
           el('span', { class: 'bandrow' }, el('span', { class: 'hl' }, c.band), favBtn(c.band_slug, c.band)),
           c.venue ? el('span', { class: 'sub' }, c.venue) : null,
           place ? el('span', { class: 'where' }, place) : null,
-          d ? el('span', { class: 'sub' }, d.toLocaleDateString('de-DE', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })) : null),
+          d ? el('span', { class: 'sub' }, d.toLocaleDateString(LOC, { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })) : null),
         t ? el('div', { class: 'ticket' },
-          el('a', { class: 'btn', href: t, target: '_blank', rel: 'noopener noreferrer', 'aria-label': c.band + ' in ' + (c.city || 'unbekannt') + ': Tickets kaufen' }, 'Tickets', svg('<path d="M7 17L17 7M9 7h8v8"/>', 14)),
-          el('small', null, 'bei ' + host(t))) : null));
+          el('a', { class: 'btn', href: t, target: '_blank', rel: 'noopener noreferrer', 'aria-label': c.band + ' in ' + (c.city || T('unbekannt', 'unknown')) + T(': Tickets kaufen', ': buy tickets') }, 'Tickets', svg('<path d="M7 17L17 7M9 7h8v8"/>', 14)),
+          el('small', null, T('bei ', 'at ') + host(t))) : null));
   }
 
   /* ---------- Liste ---------- */
@@ -830,20 +866,20 @@ a.avlink{flex:none;display:block;border-radius:10px}
     if (!items.length) {
       var hasFilter = state.q || Object.keys(state.f).some(function (k) { return state.f[k]; });
       listHost.appendChild(hasFilter
-        ? el('div', { class: 'empty' }, el('strong', null, 'KEINE TREFFER'), el('span', null, 'Zu dieser Auswahl gibt es nichts. Ändere die Suche oder setze die Filter zurück.'),
-            el('button', { class: 'more', type: 'button', onclick: function () { state.q = ''; state.f = {}; searchInput.value = ''; update(); } }, 'Filter zurücksetzen'))
-        : el('div', { class: 'empty' }, el('strong', null, 'NOCH NICHTS DA'), el('span', null, 'Hier erscheinen neue Einträge, sobald der nächste Digest oder die nächste Aktualisierung durch ist.')));
+        ? el('div', { class: 'empty' }, el('strong', null, T('KEINE TREFFER', 'NO RESULTS')), el('span', null, T('Zu dieser Auswahl gibt es nichts. Ändere die Suche oder setze die Filter zurück.', 'Nothing matches this selection. Change your search or reset the filters.')),
+            el('button', { class: 'more', type: 'button', onclick: function () { state.q = ''; state.f = {}; searchInput.value = ''; update(); } }, T('Filter zurücksetzen', 'Reset filters')))
+        : el('div', { class: 'empty' }, el('strong', null, T('NOCH NICHTS DA', 'NOTHING HERE YET')), el('span', null, T('Hier erscheinen neue Einträge, sobald der nächste Digest oder die nächste Aktualisierung durch ist.', 'New entries will show up here after the next digest or update.'))));
       return;
     }
     var shown = items.slice(0, state.limit);
     var tab = state.tab, groups;
     if (tab === 'neu') {
-      groups = groupBy(shown, function (r) { var d = parseDay(r.date); return d && dayDiff(d) > 0 ? 'Angekündigt' : 'Neu erschienen'; });
-      groups.sort(function (a) { return a.key === 'Angekündigt' ? -1 : 1; });
+      groups = groupBy(shown, function (r) { var d = parseDay(r.date); return d && dayDiff(d) > 0 ? T('Angekündigt', 'Announced') : T('Neu erschienen', 'Just released'); });
+      groups.sort(function (a) { return a.key === T('Angekündigt', 'Announced') ? -1 : 1; });
     } else if (tab === 'konzerte') {
-      groups = groupBy(shown, function (c) { var d = parseDay(c.date); return d ? monthHeading(d) : 'Ohne Datum'; });
+      groups = groupBy(shown, function (c) { var d = parseDay(c.date); return d ? monthHeading(d) : T('Ohne Datum', 'No date'); });
     } else {
-      groups = groupBy(shown, function (n) { var d = parseDay(n.date); return d ? dayHeading(d) : 'Ohne Datum'; });
+      groups = groupBy(shown, function (n) { var d = parseDay(n.date); return d ? dayHeading(d) : T('Ohne Datum', 'No date'); });
     }
     groups.forEach(function (g) {
       listHost.appendChild(el('h2', { class: 'gh' }, g.key));
@@ -853,9 +889,9 @@ a.avlink{flex:none;display:block;border-radius:10px}
     });
     if (items.length > shown.length) {
       listHost.appendChild(el('button', { class: 'more', type: 'button', onclick: function () { state.limit += PAGE; renderList(base); } },
-        'Mehr anzeigen (' + (items.length - shown.length) + ' weitere)'));
+        T('Mehr anzeigen (', 'Show more (') + (items.length - shown.length) + T(' weitere)', ' more)')));
     }
-    if (tab === 'konzerte') listHost.appendChild(el('p', { class: 'note' }, 'Termine und Ticketlinks stammen von Ticketmaster und Veranstaltern. Angaben ohne Gewähr.'));
+    if (tab === 'konzerte') listHost.appendChild(el('p', { class: 'note' }, T('Termine und Ticketlinks stammen von Ticketmaster und Veranstaltern. Angaben ohne Gewähr.', 'Dates and ticket links come from Ticketmaster and promoters. No guarantee of accuracy.')));
   }
 
   function update() {
@@ -869,41 +905,41 @@ a.avlink{flex:none;display:block;border-radius:10px}
     data.news.forEach(function (n) { if (n.band_slug) count[n.band_slug] = (count[n.band_slug] || 0) + 3; });
     data.concerts.forEach(function (c) { if (c.band_slug) count[c.band_slug] = (count[c.band_slug] || 0) + 1; });
     return data.bands.filter(function (b) { return b.slug && b.name; })
-      .sort(function (a, b) { return (count[b.slug] || 0) - (count[a.slug] || 0) || a.name.localeCompare(b.name, 'de'); });
+      .sort(function (a, b) { return (count[b.slug] || 0) - (count[a.slug] || 0) || a.name.localeCompare(b.name, LANG); });
   }
   function renderFav() {
     var favs = favList().filter(function (s) { return bandMap[s]; });
     var all = bandsSorted();
     /* Bands hinzufügen: Suche + Vorschläge */
-    var suggHost = el('div', { class: 'sugg', role: 'group', 'aria-label': 'Bands hinzufügen' });
+    var suggHost = el('div', { class: 'sugg', role: 'group', 'aria-label': T('Bands hinzufügen', 'Add bands') });
     function fillSugg(q) {
       suggHost.textContent = '';
       var nq = norm(q).trim();
       all.filter(function (b) { return favs.indexOf(b.slug) === -1 && (!nq || norm(b.name).indexOf(nq) !== -1); }).slice(0, nq ? 12 : 10)
         .forEach(function (b) {
-          suggHost.appendChild(el('button', { class: 'chip', type: 'button', 'aria-label': b.name + ' hinzufügen',
+          suggHost.appendChild(el('button', { class: 'chip', type: 'button', 'aria-label': b.name + T(' hinzufügen', ' – add'),
             onclick: function () { toggleFav(b.slug); renderView(); } }, '+ ' + b.name));
         });
-      if (!suggHost.childNodes.length) suggHost.appendChild(el('span', { class: 'sub' }, 'Keine passende Band gefunden.'));
+      if (!suggHost.childNodes.length) suggHost.appendChild(el('span', { class: 'sub' }, T('Keine passende Band gefunden.', 'No matching band found.')));
     }
-    var inp = el('input', { type: 'search', placeholder: 'Band suchen und hinzufügen', autocomplete: 'off', enterkeyhint: 'search',
+    var inp = el('input', { type: 'search', placeholder: T('Band suchen und hinzufügen', 'Search and add a band'), autocomplete: 'off', enterkeyhint: 'search',
       oninput: function () { fillSugg(inp.value); } });
     function addBlock() {
-      host$.appendChild(el('h2', { class: 'gh' }, favs.length ? 'Weitere Bands hinzufügen' : 'Beliebte Bands'));
-      host$.appendChild(el('label', { class: 'search' }, svg('<circle cx="11" cy="11" r="7"/><path d="M20 20l-4-4"/>', 20, ' style="color:#A8A8A8"'), el('span', { class: 'sr' }, 'Band suchen'), inp));
+      host$.appendChild(el('h2', { class: 'gh' }, favs.length ? T('Weitere Bands hinzufügen', 'Add more bands') : T('Beliebte Bands', 'Popular bands')));
+      host$.appendChild(el('label', { class: 'search' }, svg('<circle cx="11" cy="11" r="7"/><path d="M20 20l-4-4"/>', 20, ' style="color:#A8A8A8"'), el('span', { class: 'sr' }, T('Band suchen', 'Search band')), inp));
       host$.appendChild(suggHost);
       fillSugg('');
     }
 
     if (!favs.length) {
-      host$.appendChild(el('div', { class: 'empty' }, el('strong', null, 'NOCH KEINE BANDS'),
-        el('span', null, 'Tippe auf das \u2665 bei einer Band oder füge sie hier hinzu. Dann siehst du ihre News, neuen Releases und Konzerte gesammelt an einem Ort.')));
+      host$.appendChild(el('div', { class: 'empty' }, el('strong', null, T('NOCH KEINE BANDS', 'NO BANDS YET')),
+        el('span', null, T('Tippe auf das \u2665 bei einer Band oder füge sie hier hinzu. Dann siehst du ihre News, neuen Releases und Konzerte gesammelt an einem Ort.', 'Tap the \u2665 next to a band or add it here. You\u2019ll then see its news, new releases and concerts all in one place.'))));
       addBlock();
       return;
     }
-    host$.appendChild(el('div', { class: 'mychips', role: 'group', 'aria-label': 'Meine Bands' },
+    host$.appendChild(el('div', { class: 'mychips', role: 'group', 'aria-label': T('Meine Bands', 'My Bands') },
       favs.map(function (s) {
-        return el('button', { class: 'mychip', type: 'button', 'aria-label': bandMap[s].name + ' entfernen',
+        return el('button', { class: 'mychip', type: 'button', 'aria-label': bandMap[s].name + T(' entfernen', ' – remove'),
           onclick: function () { toggleFav(s); renderView(); } }, bandMap[s].name, el('span', { 'aria-hidden': 'true' }, '\u00D7'));
       })));
 
@@ -914,12 +950,12 @@ a.avlink{flex:none;display:block;border-radius:10px}
       host$.appendChild(sec);
     }
     var inFav = function (it) { return favs.indexOf(it.band_slug) !== -1; };
-    section('Konzerte', data.concerts.filter(function (c) { var d = parseDay(c.date); return inFav(c) && d && d >= today; })
+    section(T('Konzerte', 'Concerts'), data.concerts.filter(function (c) { var d = parseDay(c.date); return inFav(c) && d && d >= today; })
       .sort(function (a, b) { return String(a.date).localeCompare(String(b.date)); }).slice(0, 15),
-      concertCard, 'Aktuell keine Termine bekannt.');
+      concertCard, T('Aktuell keine Termine bekannt.', 'No dates known right now.'));
     section('Releases', data.releases.filter(inFav).sort(function (a, b) { return String(b.date).localeCompare(String(a.date)); }).slice(0, 10),
-      releaseCard, 'Noch keine Veröffentlichungen in den letzten Wochen.');
-    section('News', data.news.filter(inFav).slice(0, 20), newsCard, 'Noch keine News zu deinen Bands.');
+      releaseCard, T('Noch keine Veröffentlichungen in den letzten Wochen.', 'No releases in the last few weeks.'));
+    section('News', data.news.filter(inFav).slice(0, 20), newsCard, T('Noch keine News zu deinen Bands.', 'No news about your bands yet.'));
     addBlock();
   }
 
@@ -927,7 +963,7 @@ a.avlink{flex:none;display:block;border-radius:10px}
     var t = TABS.filter(function (x) { return x.id === state.tab; })[0];
     document.title = t.title.charAt(0) + t.title.slice(1).toLowerCase() + ' – Core Forge of Metal';
     host$.textContent = '';
-    searchInput = el('input', { type: 'search', id: 'q', placeholder: 'Band, Song oder Stadt suchen', autocomplete: 'off', enterkeyhint: 'search',
+    searchInput = el('input', { type: 'search', id: 'q', placeholder: T('Band, Song oder Stadt suchen', 'Search band, song or city'), autocomplete: 'off', enterkeyhint: 'search',
       oninput: function () { state.q = searchInput.value; state.limit = PAGE; renderList(baseItems()); } });
     chipsHost = el('div');
     listHost = el('div', { class: 'list' });
@@ -943,7 +979,7 @@ a.avlink{flex:none;display:block;border-radius:10px}
         host$.appendChild(rq ? quizCard(rq, true) : quizCard(qz));
       }
     }
-    host$.appendChild(el('label', { class: 'search' }, svg('<circle cx="11" cy="11" r="7"/><path d="M20 20l-4-4"/>', 20, ' style="color:#A8A8A8"'), el('span', { class: 'sr', style: 'position:absolute;left:-9999px' }, 'Suchen'), searchInput));
+    host$.appendChild(el('label', { class: 'search' }, svg('<circle cx="11" cy="11" r="7"/><path d="M20 20l-4-4"/>', 20, ' style="color:#A8A8A8"'), el('span', { class: 'sr', style: 'position:absolute;left:-9999px' }, T('Suchen', 'Search')), searchInput));
     host$.appendChild(chipsHost);
     host$.appendChild(listHost);
     update();
@@ -961,14 +997,14 @@ a.avlink{flex:none;display:block;border-radius:10px}
 
   function showLoading() {
     host$.textContent = '';
-    host$.appendChild(el('p', { class: 'note', role: 'status' }, 'Lade Daten …'));
+    host$.appendChild(el('p', { class: 'note', role: 'status' }, T('Lade Daten …', 'Loading …')));
   }
   function showError() {
     host$.textContent = '';
     host$.appendChild(el('div', { class: 'empty', role: 'alert' },
-      el('strong', null, 'KEINE VERBINDUNG'),
-      el('span', null, 'Die Daten konnten nicht geladen werden. Prüfe deine Internetverbindung und versuche es erneut.'),
-      el('button', { class: 'again', type: 'button', onclick: start }, 'Erneut versuchen')));
+      el('strong', null, T('KEINE VERBINDUNG', 'NO CONNECTION')),
+      el('span', null, T('Die Daten konnten nicht geladen werden. Prüfe deine Internetverbindung und versuche es erneut.', 'The data could not be loaded. Check your internet connection and try again.')),
+      el('button', { class: 'again', type: 'button', onclick: start }, T('Erneut versuchen', 'Try again'))));
   }
 
   var splashT0 = Date.now();
