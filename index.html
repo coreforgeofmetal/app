@@ -436,29 +436,29 @@ a.avlink{flex:none;display:block;border-radius:10px}
     var when = d ? d.toLocaleDateString(LOC, { day: 'numeric', month: 'numeric', year: 'numeric' }) : '';
     var box = el('section', { class: 'reel', 'aria-label': T('Reel des Tages', 'Reel of the day') });
     box.appendChild(el('div', { class: 'rk' }, el('span', null, kicker), el('span', { class: 'rd' }, when)));
-    box.appendChild(el('h2', { class: 'rt' }, r.title));
+    box.appendChild(el('h2', { class: 'rt' }, tx(r, 'title')));
     var id = ytId(r.url);
     if (id) {
       var frame = el('div', { class: 'rframe' });
       var img = el('img', { src: 'https://i.ytimg.com/vi/' + id + '/hqdefault.jpg', alt: '', loading: 'lazy' });
       img.addEventListener('error', function () { img.style.display = 'none'; });
-      var btn = el('button', { class: 'rplay', type: 'button', 'aria-label': T('Reel abspielen: ', 'Play reel: ') + r.title,
+      var btn = el('button', { class: 'rplay', type: 'button', 'aria-label': T('Reel abspielen: ', 'Play reel: ') + tx(r, 'title'),
         onclick: function () {
           frame.className = 'rframe play';
           frame.textContent = '';
-          frame.appendChild(el('iframe', { src: 'https://www.youtube-nocookie.com/embed/' + id + '?autoplay=1&rel=0&playsinline=1',
-            title: r.title, allow: 'autoplay; encrypted-media; picture-in-picture; fullscreen', allowfullscreen: true }));
+          frame.appendChild(el('iframe', { src: 'https://www.youtube-nocookie.com/embed/' + id + '?autoplay=1&rel=0&playsinline=1' + (EN ? '&hl=en&cc_lang_pref=en&cc_load_policy=1' : ''),
+            title: tx(r, 'title'), allow: 'autoplay; encrypted-media; picture-in-picture; fullscreen', allowfullscreen: true }));
         } }, el('span', null, svg('<path d="M8 5v14l11-7z" fill="currentColor" stroke="none"/>', 28)));
       frame.appendChild(img); frame.appendChild(btn);
       box.appendChild(frame);
     } else {
-      box.appendChild(link(r.url, T('Reel ansehen', 'Watch reel'), T('Reel ansehen: ', 'Watch reel: ') + r.title));
+      box.appendChild(link(r.url, T('Reel ansehen', 'Watch reel'), T('Reel ansehen: ', 'Watch reel: ') + tx(r, 'title')));
     }
     if (list.length > 1) {
       var more = el('div', { class: 'rmore', hidden: true });
       list.slice(1, 11).forEach(function (x) {
         more.appendChild(el('a', { href: safeUrl(x.url), target: '_blank', rel: 'noopener noreferrer' },
-          el('small', null, (parseDay(x.date) ? parseDay(x.date).toLocaleDateString(LOC, { day: 'numeric', month: 'numeric' }) : '')), x.title));
+          el('small', null, (parseDay(x.date) ? parseDay(x.date).toLocaleDateString(LOC, { day: 'numeric', month: 'numeric' }) : '')), tx(x, 'title')));
       });
       var tog = el('button', { class: 'more', type: 'button', 'aria-expanded': 'false', onclick: function () {
         var open = more.hasAttribute('hidden');
