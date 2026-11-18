@@ -318,6 +318,18 @@ a.avlink{flex:none;display:block;border-radius:10px}
     if (!code) return '';
     try { return regionNames ? regionNames.of(String(code).toUpperCase()) : code; } catch (e) { return code; }
   }
+  // Regionen für den Konzert-Filter (Ländercodes nach ISO)
+  var REGIONS = [
+    ['eu', T('Europa', 'Europe'), 'DE AT CH GB IE FR NL BE LU ES PT IT SE NO DK FI IS PL CZ SK HU SI HR RS BA ME MK AL GR BG RO MD UA BY LT LV EE MT CY TR'],
+    ['na', T('Nordamerika', 'North America'), 'US CA MX'],
+    ['sa', T('Südamerika', 'South America'), 'BR AR CL CO PE UY PY BO EC VE CR PA GT'],
+    ['as', T('Asien & Ozeanien', 'Asia & Oceania'), 'JP KR CN TW HK SG TH MY ID PH IN AU NZ AE IL']
+  ];
+  function regionOf(code) {
+    var c = String(code || '').toUpperCase();
+    for (var i = 0; i < REGIONS.length; i++) if ((' ' + REGIONS[i][2] + ' ').indexOf(' ' + c + ' ') !== -1) return REGIONS[i][0];
+    return c ? 'other' : '';
+  }
   function groupBy(items, keyFn) {
     var groups = [], idx = {};
     items.forEach(function (it) {
@@ -720,6 +732,7 @@ a.avlink{flex:none;display:block;border-radius:10px}
       else if (f.format && it.format !== f.format) return false;
       if (f.type && it.type !== f.type) return false;
       if (f.scope === 'de' && String(it.country).toUpperCase() !== 'DE') return false;
+      if (f.region && regionOf(it.country) !== f.region) return false;
       if (f.scope === 'monat') {
         var d = parseDay(it.date);
         if (!d || d.getMonth() !== today.getMonth() || d.getFullYear() !== today.getFullYear()) return false;
@@ -736,7 +749,10 @@ a.avlink{flex:none;display:block;border-radius:10px}
       options.map(function (o) {
         var on = (state.f[key] || null) === o[0];
         return el('button', { class: 'chip', type: 'button', 'aria-pressed': on ? 'true' : 'false', onclick: function () {
-          state.f[key] = o[0]; state.limit = PAGE; update();
+          state.f[key] = o[0];
+          if (key === 'region' && o[0] && state.f.scope === 'de') state.f.scope = null;
+          if (key === 'scope' && o[0] === 'de') state.f.region = null;
+          state.limit = PAGE; update();
         } }, o[1]);
       }));
   }
@@ -750,6 +766,13 @@ a.avlink{flex:none;display:block;border-radius:10px}
     chipsHost.textContent = '';
     var rows = [];
     if (state.tab === 'konzerte') rows.push(chipRow(T('Zeitraum und Land', 'Period and country'), [['de', T('Deutschland', 'Germany')], ['monat', T('Dieser Monat', 'This month')], [null, T('Alle Länder', 'All countries')]], 'scope'));
+    if (state.tab === 'konzerte') {
+      var hasReg = {};
+      base.forEach(function (it) { hasReg[regionOf(it.country)] = true; });
+      var ro = [[null, T('Alle Regionen', 'All regions')]];
+      REGIONS.forEach(function (r) { if (hasReg[r[0]]) ro.push([r[0], r[1]]); });
+      if (ro.length > 2) rows.push(chipRow(T('Region', 'Region'), ro, 'region'));
+    }
     if (state.tab === 'neu') rows.push(chipRow(T('Art der Veröffentlichung', 'Release type'), [[null, T('Alle', 'All')], ['album', T('Alben', 'Albums')], ['ep', 'EPs'], ['single', 'Singles']], 'type'));
     if (state.tab === 'news') {
       var present = {};
@@ -985,7 +1008,7 @@ a.avlink{flex:none;display:block;border-radius:10px}
     update();
   }
 
-  function defaults() { return state.tab === 'konzerte' ? { scope: 'de' } : {}; }
+  function defaults() { return state.tab === 'konzerte' ? (LANG === 'en' ? {} : { scope: 'de' }) : {}; }
   function go() {
     state.tab = tabFromHash();
     state.f = defaults(); state.q = ''; state.limit = PAGE;
